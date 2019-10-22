@@ -13,17 +13,14 @@
 Platform_Api platform;
 
 internal void
-update_and_render(App* app, Render_Commands* render_commands) {
+update_and_render(App* app, Renderer* renderer) {
     platform = app->platform_api;
     
-    Render_Group render_group =
-        begin_render_group(render_commands, Render_Group_Flags::DEFAULT,
-                           make_v4(0.0f, 1.0f, 0.0f, 1.0f));
-    
-    push_rect(&render_group,
-              rect_min_max(make_v2(0.0f, 0.0f), make_v2(100.0f, 100.0f)),
-              make_v3(0.0f, 0.0f, 0.0f), make_v4(1.0f, 0.0f, 0.0f, 1.0f));
-    
-    end_render_group(&render_group);
-    
+    renderer->begin_frame(renderer,
+                          (f32)app->window_dim.width,
+                          (f32)app->window_dim.height);
+    push_filled_rect(renderer,
+                     rect_min_max(make_v2(50, 50), make_v2(100, 100)),
+                     make_v4(1, 0, 0, 1));
+    renderer->end_frame(renderer);
 }

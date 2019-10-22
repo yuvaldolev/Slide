@@ -1,213 +1,86 @@
 #if !defined(SLIDE_RENDERER_H)
 
-#define MAX_NORMAL_TEXTURE_COUNT 256
-#define MAX_SPECIAL_TEXTURE_COUNT 16
-#define TEXTURE_TRANSFER_BUFFER_SIZE (128*1024*1024)
+struct Renderer;
 
-#define TEXTURE_ARRAY_DIM 512
-#define TEXTURE_SPECIAL_BIT 0x80000000
-
-struct Platform_Renderer;
-struct Render_Commands;
-
-#define RENDERER_BEGIN_FRAME(name) Render_Commands* name(Platform_Renderer* renderer, u32 window_width, u32 window_height, Rectangle2i draw_region)
+#define RENDERER_BEGIN_FRAME(name) void name(Renderer* renderer, f32 render_width, f32 render_height)
 typedef RENDERER_BEGIN_FRAME(Renderer_Begin_Frame);
 
-#define RENDERER_END_FRAME(name) void name(Platform_Renderer* renderer, Render_Commands* frame)
+#define RENDERER_END_FRAME(name) void name(Renderer* renderer)
 typedef RENDERER_END_FRAME(Renderer_End_Frame);
 
-union Renderer_Texture {
-    u64 packed;
+#pragma pack(push, 1)
+struct Renderer_Filled_Rect {
+    Vector3 p1;
+    Vector3 p2;
+    Vector3 p3;
+    Vector3 p4;
     
-    struct {
-        u32 index;
-        u16 width;
-        u16 height;
-    };
+    Vector4 c1;
+    Vector4 c2;
+    Vector4 c3;
+    Vector4 c4;
 };
+#pragma pack(pop)
 
-namespace Texture_Op_State {
+namespace Render_Flags {
     enum Type {
-        EMPTY,
-        PENDING_LOAD,
-        READY_TO_TRANSFER
+        FLIP_HORIZONTAL = 0x1,
+        FLIP_VERTICAL = 0x2,
+        ADDITIVE_BLEND = 0x4,
+        TEXT_ALIGN_CENTER_X = 0x8,
+        TEXT_ALIGN_CENTER_Y = 0x10,
+        TEXT_ALIGN_RIGHT = 0x20,
+        RENDER_2D = 0x40,
+        NO_SHADOW = 0x80,
+        NO_DEPTH_WRITE = 0x100
     };
 }
 
-struct Texture_Op {
-    Renderer_Texture texture;
-    void* data;
-    u32 transfer_memory_last_used;
-    volatile Texture_Op_State::Type state;
-};
-
-struct Renderer_Texture_Queue {
-    u32 transfer_memory_count;
-    u32 transfer_memory_first_used;
-    u32 transfer_memory_last_used;
-    u8* transfer_memory;
-    
-    u32 op_count;
-    u32 first_op_index;
-    Texture_Op ops[256];
-};
-
-struct Platform_Renderer_Limits {
-    u32 max_quad_count_per_frame;
-    u32 max_texture_count;
-    u32 max_special_texture_count;
-    u32 texture_transfer_buffer_size;
-};
-
-struct Platform_Renderer {
-    Renderer_Texture_Queue texture_queue;
-    
-    Renderer_Begin_Frame* begin_frame;
-    Renderer_End_Frame* end_frame;
-};
-
-namespace Render_Group_Entry_Kind {
+namespace Render_Request_Kind {
     enum Type {
-        TEXTURED_QUADS
+        NONE,
+        
+        FILLED_RECT
     };
 }
 
-struct Render_Group_Entry_Header {
-    u16 kind;
-};
-
-struct Render_Setup {
-    Rectangle2 clip_rect;
-    u32 render_target_index;
-    Matrix4x4 proj;
-    Vector3 camera_p;
+struct Render_Request {
+    Render_Request_Kind::Type kind;
     
-    Vector3 fog_direction;
-    Vector3 fog_color;
-    f32 fog_start_distance;
-    f32 fog_end_distance;
-    
-    f32 clip_alpha_start_distance;
-    f32 clip_alpha_end_distance;
-};
-
-struct Render_Entry_Textured_Quads {
-    Render_Setup setup;
-    
-    u32 quad_count;
-    u32 vertex_array_offset;
-    u32 index_array_offset;
-    
-    // NOTE(yuval): Textures is 0 if using the default texture array / single batch render,
-    // and an array of one texture per quad if not.
-    Renderer_Texture* quad_textures;
-};
-
-struct Push_Buffer_Result {
-    Render_Group_Entry_Header* header;
-};
-
-namespace Render_Group_Flags {
-    enum Type {
-        DEFAULT
-    };
-}
-
-struct Render_Group {
-    Render_Commands* commands;
-    
-    Render_Entry_Textured_Quads* current_quads;
-    
-    // NOTE(yuval): The app must supply this, otherwise it will not be set
-    Renderer_Texture white_texture;
-    
-    Render_Setup last_setup;
-    
+    u32 data_offset;
+    u32 data_size;
     u32 flags;
 };
 
-struct Textured_Vertex {
-    Vector4 p;
-    Vector2 light_uv;
-    Vector2 uv;
-    // NOTE(casey): Packed RGBA in memory order (ABGR in little-endian)
-    u32 color;
+struct Renderer {
+    Renderer_Begin_Frame* begin_frame;
+    Renderer_End_Frame* end_frame;
     
-    Vector3 n;
-    u16 light_index;
-    u16 texture_index;
+    Render_Request requests[65536];
+    umm request_count;
+    
+    Render_Request active_request;
+    
+    // NOTE(yuval): Filled Rectangle Data
+    u32 max_filled_rects;
+    u32 max_filled_rect_bytes;
+    u8* filled_rect_instance_data;
+    u32 filled_rect_instance_data_alloc_pos;
 };
 
-struct Render_Settings {
-    // NOTE(yuval): The RenderDim is the actual size of all our render backbuffers
-    Vector2u render_dim;
-    
-    u32 depth_peel_count_hint;
-    b32 multisampling_debug;
-    b32 multisampling_hint;
-    b32 pixelation_hint;
-    b32 lighting_disabled;
-    b32 request_vsync;
-};
-
-struct Render_Commands {
-    Render_Settings settings;
-    
-    // NOTE(yuval): OSWindowWidth/Height should NOT be used for anything drawing-related!
-    // They are just there to let you know the shape of the container window into
-    // which you are drawing.  DrawRegion contains the actual width/height you would
-    // use for drawing.
-    Vector2u os_window_dim;
-    // NOTE(yuval): This is the subsection of the window to which we will draw
-    Rectangle2i os_draw_region;
-    
-    u32 max_push_buffer_size;
-    u8* push_buffer_base;
-    u8* push_buffer_data_at;
-    
-    u32 max_vertex_count;
-    u32 vertex_count;
-    Textured_Vertex* vertex_array;
-    
-    u32 max_index_count;
-    u32 index_count;
-    u16* index_array;
-    
-    u32 max_quad_texture_count;
-    u32 quad_texture_count;
-    Renderer_Texture* quad_textures;
+struct Renderer_Limits {
+    u32 max_filled_rects;
 };
 
 internal void
-init_texture_queue(Renderer_Texture_Queue* queue,
-                   u32 request_transfer_buffer_size,
-                   void* memory) {
-    queue->transfer_memory_count = request_transfer_buffer_size;
-    queue->transfer_memory_first_used = 0;
-    queue->transfer_memory_last_used = 0;
-    queue->transfer_memory = (u8*)memory;
-    
-    queue->op_count = 0;
-    queue->first_op_index = 0;
-    
-}
-
-internal b32
-is_special_texture(Renderer_Texture texture) {
-    b32 result = (texture.index & TEXTURE_SPECIAL_BIT);
-    return result;
-}
-
-internal u32
-texture_index_from(Renderer_Texture texture) {
-    u32 result = (texture.index & ~TEXTURE_SPECIAL_BIT);
-    return result;
-}
-
-inline b32
-settings_match(Render_Settings* a, Render_Settings* b) {
-    b32 result = memories_match(a, b, sizeof(*a));
-    return result;
+renderer_finish_active_request(Renderer* renderer) {
+    if (renderer->active_request.kind != Render_Request_Kind::NONE) {
+        ASSERT(renderer->request_count < sizeof(renderer->requests));
+        renderer->requests[renderer->request_count++] =
+            renderer->active_request;
+        
+        renderer->active_request.kind = Render_Request_Kind::NONE;
+    }
 }
 
 #define SLIDE_RENDERER_H

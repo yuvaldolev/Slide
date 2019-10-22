@@ -102,7 +102,6 @@ WinMain(HINSTANCE instance,
                                       instance,
                                       0);
         
-        
         if (window) {
             App app;
             app.platform_api.display_message_box =
@@ -110,13 +109,10 @@ WinMain(HINSTANCE instance,
             
             HDC renderer_dc = GetDC(window);
             
-            Platform_Renderer_Limits limits;
-            limits.max_quad_count_per_frame = (1 << 18);
-            limits.max_texture_count = MAX_NORMAL_TEXTURE_COUNT;
-            limits.max_special_texture_count = MAX_SPECIAL_TEXTURE_COUNT;
-            limits.texture_transfer_buffer_size = TEXTURE_TRANSFER_BUFFER_SIZE;
+            Renderer_Limits limits;
+            limits.max_filled_rects = 16384;
             
-            Platform_Renderer* renderer =
+            Renderer* renderer =
                 win32_init_default_renderer(window, &limits);
             
             global_running = true;
@@ -126,17 +122,6 @@ WinMain(HINSTANCE instance,
                     
                     // 1920, 1080
                 };
-                
-                Vector2u dimensions = win32_get_window_dimensions(window);
-                Rectangle2i draw_region = aspect_ratio_fit(
-                    render_dim.width, render_dim.height,
-                    dimensions.width, dimensions.height);
-                
-                Render_Commands* frame = renderer->begin_frame(
-                    renderer,
-                    dimensions.width, dimensions.height,
-                    draw_region);
-                frame->settings.render_dim = render_dim;
                 
                 MSG message;
                 while (PeekMessageA(&message, 0, 0, 0, PM_REMOVE)) {
@@ -152,9 +137,10 @@ WinMain(HINSTANCE instance,
                     }
                 }
                 
-                update_and_render(&app, frame);
+                // NOTE(yuval): Update window dimensions
+                app.window_dim = win32_get_window_dimensions(window);
                 
-                renderer->end_frame(renderer, frame);
+                update_and_render(&app, renderer);
             }
         } else {
             // TODO(yuval): Diagnostics

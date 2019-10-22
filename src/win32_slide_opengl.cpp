@@ -51,6 +51,8 @@
 #define WGL_BLUE_BITS_ARB                          0x2019
 #define WGL_ALPHA_BITS_ARB                         0x201B
 #define WGL_DEPTH_BITS_ARB                         0x2022
+#define WGL_COLOR_BITS_ARB                         0x2014
+#define WGL_STENCIL_BITS_ARB                       0x2023
 
 typedef char GLchar;
 typedef ptrdiff_t GLsizeiptr;
@@ -79,6 +81,7 @@ typedef void WINAPI Type_glUniformMatrix4fv(GLint location, GLsizei count, GLboo
 typedef void WINAPI Type_glUniform1i(GLint location, GLint v0);
 
 typedef void WINAPI Type_glUniform1f(GLint location, GLfloat v0);
+typedef void WINAPI Type_glUniform2f(GLint location, GLfloat v0, GLfloat v1);
 typedef void WINAPI Type_glUniform2fv(GLint location, GLsizei count, const GLfloat *value);
 typedef void WINAPI Type_glUniform3fv(GLint location, GLsizei count, const GLfloat *value);
 
@@ -86,7 +89,8 @@ typedef void WINAPI Type_glEnableVertexAttribArray(GLuint index);
 typedef void WINAPI Type_glDisableVertexAttribArray(GLuint index);
 typedef GLint WINAPI Type_glGetAttribLocation(GLuint program, const GLchar *name);
 typedef void WINAPI Type_glVertexAttribPointer(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
-typedef void WINAPI Type_glVertexAttribIPointer (GLuint index, GLint size, GLenum type, GLsizei stride, const void *pointer);
+typedef void WINAPI Type_glVertexAttribIPointer(GLuint index, GLint size, GLenum type, GLsizei stride, const void *pointer);
+typedef void WINAPI Type_glVertexAttribDivisor(GLuint index, GLuint divisor);
 typedef void WINAPI Type_glBindVertexArray(GLuint array);
 typedef void WINAPI Type_glGenVertexArrays(GLsizei n, GLuint *arrays);
 typedef void WINAPI Type_glBindBuffer (GLenum target, GLuint buffer);
@@ -101,6 +105,12 @@ typedef void WINAPI Type_glTexImage3D (GLenum target, GLint level, GLint interna
 typedef void WINAPI Type_glTexSubImage3D (GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void *pixels);
 
 typedef void WINAPI Type_glDrawElementsBaseVertex (GLenum mode, GLsizei count, GLenum type, const void *indices, GLint basevertex);
+
+typedef void WINAPI Type_glBindAttribLocation(GLuint program, GLuint index, const GLchar *name);
+typedef void WINAPI Type_glBindFragDataLocation(GLuint program, GLuint color, const GLchar *name);
+typedef void WINAPI Type_glBlendFuncSeparate(GLenum sfactorRGB, GLenum dfactorRGB, GLenum sfactorAlpha, GLenum dfactorAlpha);
+typedef void WINAPI Type_glBufferSubData(GLenum target, GLintptr offset, GLsizeiptr size, const GLvoid* data);
+typedef void WINAPI Type_glDrawArraysInstanced(GLenum mode, GLint first, GLsizei count, GLsizei primcount);
 
 #define GL_DEBUG_CALLBACK(name) void WINAPI name(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *userParam)
 typedef GL_DEBUG_CALLBACK(GLDEBUGPROC);
@@ -133,6 +143,7 @@ OPENGL_GLOBAL_FUNCTION(glUniformMatrix4fv);
 OPENGL_GLOBAL_FUNCTION(glUniform1i);
 
 OPENGL_GLOBAL_FUNCTION(glUniform1f);
+OPENGL_GLOBAL_FUNCTION(glUniform2f);
 OPENGL_GLOBAL_FUNCTION(glUniform2fv);
 OPENGL_GLOBAL_FUNCTION(glUniform3fv);
 OPENGL_GLOBAL_FUNCTION(glEnableVertexAttribArray);
@@ -140,6 +151,7 @@ OPENGL_GLOBAL_FUNCTION(glDisableVertexAttribArray);
 OPENGL_GLOBAL_FUNCTION(glGetAttribLocation);
 OPENGL_GLOBAL_FUNCTION(glVertexAttribPointer);
 OPENGL_GLOBAL_FUNCTION(glVertexAttribIPointer);
+OPENGL_GLOBAL_FUNCTION(glVertexAttribDivisor);
 OPENGL_GLOBAL_FUNCTION(glDebugMessageCallbackARB);
 OPENGL_GLOBAL_FUNCTION(glBindVertexArray);
 OPENGL_GLOBAL_FUNCTION(glGenVertexArrays);
@@ -156,22 +168,14 @@ OPENGL_GLOBAL_FUNCTION(glTexImage3D);
 OPENGL_GLOBAL_FUNCTION(glTexSubImage3D);
 OPENGL_GLOBAL_FUNCTION(glDrawElementsBaseVertex);
 
+OPENGL_GLOBAL_FUNCTION(glBindAttribLocation);
+OPENGL_GLOBAL_FUNCTION(glBindFragDataLocation);
+OPENGL_GLOBAL_FUNCTION(glBlendFuncSeparate);
+OPENGL_GLOBAL_FUNCTION(glBufferSubData);
+OPENGL_GLOBAL_FUNCTION(glDrawArraysInstanced);
+
 typedef HGLRC WINAPI Wgl_Create_Context_Attribs_Arb(HDC hDC, HGLRC hShareContext,
                                                     const int *attribList);
-
-typedef BOOL WINAPI Wgl_Get_Pixel_Format_Attrib_Iv_Arb(HDC hdc,
-                                                       int iPixelFormat,
-                                                       int iLayerPlane,
-                                                       UINT nAttributes,
-                                                       const int *piAttributes,
-                                                       int *piValues);
-
-typedef BOOL WINAPI Wgl_Get_Pixel_Format_Attrib_Fv_Arb(HDC hdc,
-                                                       int iPixelFormat,
-                                                       int iLayerPlane,
-                                                       UINT nAttributes,
-                                                       const int *piAttributes,
-                                                       FLOAT *pfValues);
 
 typedef BOOL WINAPI Wgl_Choose_Pixel_Format_Arb(HDC hdc,
                                                 const int *piAttribIList,
@@ -180,147 +184,24 @@ typedef BOOL WINAPI Wgl_Choose_Pixel_Format_Arb(HDC hdc,
                                                 int *piFormats,
                                                 UINT *nNumFormats);
 
+
+
 typedef BOOL WINAPI Wgl_Swap_Interval_Ext(int interval);
-typedef const char* WINAPI Wgl_Get_Extensions_String_Ext(void);
 
 global Wgl_Create_Context_Attribs_Arb* wglCreateContextAttribsARB;
 global Wgl_Choose_Pixel_Format_Arb* wglChoosePixelFormatARB;
 global Wgl_Swap_Interval_Ext* wglSwapIntervalEXT;
-global Wgl_Get_Extensions_String_Ext* wglGetExtensionsStringEXT;
 
 #include "slide_renderer_opengl.h"
 #include "slide_renderer_opengl.cpp"
 
-global int win32_opengl_attribs[] = {
-    WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
-    WGL_CONTEXT_MINOR_VERSION_ARB, 3,
-    WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,
-    WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
-    WGL_CONTEXT_MINOR_VERSION_ARB, 3,
-    WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,
-    0
-};
+global HGLRC global_win32_opengl_context;
 
 internal void
-win32_set_pixel_format(Opengl* opengl, HDC window_dc) {
-    int suggested_pixel_format_index = 0;
-    GLuint extended_pick = 0;
-    
-    if (wglChoosePixelFormatARB) {
-        int int_attrib_list[] {
-            WGL_DRAW_TO_WINDOW_ARB, GL_TRUE, // 0
-            WGL_ACCELERATION_ARB, WGL_FULL_ACCELERATION_ARB, // 1
-            WGL_SUPPORT_OPENGL_ARB, GL_TRUE, // 2
-            WGL_DOUBLE_BUFFER_ARB, GL_TRUE, // 3
-            WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB, // 4
-            WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB, GL_TRUE, // 5
-            0,
-        };
-        
-        if (!opengl->supports_srgb_framebuffer) {
-            int_attrib_list[10] = 0;
-        }
-        
-        wglChoosePixelFormatARB(window_dc, int_attrib_list, 0, 1,
-                                &suggested_pixel_format_index,
-                                &extended_pick);
-    }
-    
-    if (!extended_pick) {
-        PIXELFORMATDESCRIPTOR desired_pixel_format = {};
-        desired_pixel_format.nSize = sizeof(desired_pixel_format);
-        desired_pixel_format.nVersion = 1;
-        desired_pixel_format.iPixelType = PFD_TYPE_RGBA;
-        desired_pixel_format.dwFlags =
-            PFD_SUPPORT_OPENGL | PFD_DRAW_TO_WINDOW | PFD_DOUBLEBUFFER;
-        desired_pixel_format.cColorBits = 32;
-        desired_pixel_format.cAlphaBits = 8;
-        desired_pixel_format.cDepthBits = 24;
-        desired_pixel_format.iLayerType = PFD_MAIN_PLANE;
-        
-        suggested_pixel_format_index =
-            ChoosePixelFormat(window_dc, &desired_pixel_format);
-    }
-    
-    PIXELFORMATDESCRIPTOR suggested_pixel_format;
-    DescribePixelFormat(window_dc, suggested_pixel_format_index,
-                        sizeof(suggested_pixel_format),
-                        &suggested_pixel_format);
-    
-    SetPixelFormat(window_dc, suggested_pixel_format_index,
-                   &suggested_pixel_format);
-}
-
-internal void
-win32_load_wgl_extensions(Opengl* opengl) {
-    WNDCLASSA window_class = {};
-    
-    window_class.lpfnWndProc = DefWindowProcA;
-    window_class.hInstance = GetModuleHandle(0);
-    window_class.lpszClassName = "SlideWGLLoader";
-    
-    if (RegisterClassA(&window_class)) {
-        HWND window = CreateWindowExA(
-            0,
-            window_class.lpszClassName,
-            "Slide",
-            0,
-            CW_USEDEFAULT,
-            CW_USEDEFAULT,
-            CW_USEDEFAULT,
-            CW_USEDEFAULT,
-            0,
-            0,
-            window_class.hInstance,
-            0);
-        
-        HDC window_dc = GetDC(window);
-        win32_set_pixel_format(opengl, window_dc);
-        HGLRC opengl_rc = wglCreateContext(window_dc);
-        
-        if (wglMakeCurrent(window_dc, opengl_rc)) {
-            wglChoosePixelFormatARB =
-                (Wgl_Choose_Pixel_Format_Arb*)wglGetProcAddress("wglChoosePixelFormatARB");
-            wglCreateContextAttribsARB =
-                (Wgl_Create_Context_Attribs_Arb*)wglGetProcAddress("wglCreateContextAttribsARB");
-            wglGetExtensionsStringEXT =
-                (Wgl_Get_Extensions_String_Ext*)wglGetProcAddress("wglGetExtensionsStringEXT");
-            
-            if (wglGetExtensionsStringEXT) {
-                char* extensions = (char*)wglGetExtensionsStringEXT();
-                char* at = extensions;
-                
-                while (*at) {
-                    while (is_whitespace(*at)) {
-                        ++at;
-                    }
-                    
-                    char* end = at;
-                    
-                    while (*end && (!is_whitespace(*end))) {
-                        ++end;
-                    }
-                    
-                    umm count = end - at;
-                    
-                    if (strings_match(at, count,
-                                      "WGL_EXT_framebuffer_sRGB")) {
-                        opengl->supports_srgb_framebuffer = true;
-                    } else if (strings_match(at, count, "WGL_ARB_framebuffer_sRGB")) {
-                        opengl->supports_srgb_framebuffer = true;
-                    }
-                    
-                    at = end;
-                }
-            }
-            
-            wglMakeCurrent(0, 0);
-        }
-        
-        wglDeleteContext(opengl_rc);
-        ReleaseDC(window, window_dc);
-        DestroyWindow(window);
-    }
+win32_load_wgl_extensions() {
+    wglCreateContextAttribsARB = (Wgl_Create_Context_Attribs_Arb*)wglGetProcAddress("wglCreateContextAttribsARB");
+    wglChoosePixelFormatARB = (Wgl_Choose_Pixel_Format_Arb*)wglGetProcAddress("wglChoosePixelFormatARB");
+    wglSwapIntervalEXT = (Wgl_Swap_Interval_Ext*)wglGetProcAddress("wglSwapIntervalEXT");
 }
 
 internal void*
@@ -333,134 +214,166 @@ win32_renderer_alloc(umm size) {
 }
 
 RENDERER_BEGIN_FRAME(win32_opengl_begin_frame) {
-    Render_Commands* result =
-        opengl_begin_frame((Opengl*)renderer,
-                           window_width, window_height,
-                           draw_region);
-    
-    return result;
+    opengl_begin_frame((Renderer_Opengl*)renderer, render_width, render_height);
 }
 
 RENDERER_END_FRAME(win32_opengl_end_frame) {
-    opengl_end_frame((Opengl*)renderer, frame);
+    opengl_end_frame((Renderer_Opengl*)renderer);
     SwapBuffers(wglGetCurrentDC());
 }
 
-internal Opengl*
-win32_init_opengl(HDC window_dc, Platform_Renderer_Limits* limits) {
-    Opengl* opengl = (Opengl*)win32_renderer_alloc(sizeof(Opengl));
+internal Renderer_Opengl*
+win32_init_opengl(HDC window_dc, Renderer_Limits* limits) {
+    Renderer_Opengl* opengl = (Renderer_Opengl*)
+        win32_renderer_alloc(sizeof(Renderer_Opengl));
     
-    init_texture_queue(&opengl->header.texture_queue,
-                       limits->texture_transfer_buffer_size,
-                       win32_renderer_alloc(limits->texture_transfer_buffer_size));
+    // NOTE(yuval): Renderer Base Initialization
+    Renderer* renderer = &opengl->base;
+    renderer->begin_frame = win32_opengl_begin_frame;
+    renderer->end_frame = win32_opengl_end_frame;
+    renderer->max_filled_rects = limits->max_filled_rects;
+    renderer->max_filled_rect_bytes = renderer->max_filled_rects * sizeof(Renderer_Filled_Rect);
+    renderer->filled_rect_instance_data =
+        (u8*)win32_renderer_alloc(renderer->max_filled_rect_bytes);
     
-    opengl->header.begin_frame = win32_opengl_begin_frame;
-    opengl->header.end_frame = win32_opengl_end_frame;
+    // NOTE(yuval): Setting up pixel format for dummy context
+    int pixel_format = 0;
+    PIXELFORMATDESCRIPTOR pfd = {
+        sizeof(PIXELFORMATDESCRIPTOR),
+        1,
+        PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
+        PFD_TYPE_RGBA,
+        32,
+        0, 0, 0, 0, 0, 0,
+        0,
+        0,
+        0,
+        0, 0, 0, 0,
+        24,
+        8,
+        0,
+        PFD_MAIN_PLANE,
+        0,
+        0, 0, 0
+    };
     
-    win32_load_wgl_extensions(opengl);
-    win32_set_pixel_format(opengl, window_dc);
+    pixel_format = ChoosePixelFormat(window_dc, &pfd);
     
-    u32 max_vertex_count = limits->max_quad_count_per_frame * 4;
-    u32 max_index_count = limits->max_quad_count_per_frame * 6;
-    opengl->max_vertex_count = max_vertex_count;
-    opengl->max_index_count = max_index_count;
-    
-    opengl->max_texture_count = limits->max_texture_count;
-    opengl->max_special_texture_count = limits->max_special_texture_count;
-    
-    opengl->max_quad_texture_count = limits->max_quad_count_per_frame;
-    
-    opengl->vertex_array = (Textured_Vertex*)
-        win32_renderer_alloc(max_vertex_count * sizeof(Textured_Vertex));
-    opengl->index_array = (u16*)
-        win32_renderer_alloc(max_index_count * sizeof(u16));
-    opengl->bitmap_array = (Renderer_Texture*)
-        win32_renderer_alloc(opengl->max_quad_texture_count *
-                             sizeof(Renderer_Texture));
-    opengl->special_texture_handles = (GLuint*)
-        win32_renderer_alloc(limits->max_special_texture_count *
-                             sizeof(GLuint));
-    
-    b32 modern_context = true;
-    HGLRC opengl_rc = 0;
-    if (wglCreateContextAttribsARB) {
-        opengl_rc = wglCreateContextAttribsARB(window_dc, 0,
-                                               win32_opengl_attribs);
-    }
-    
-    if (!opengl_rc) {
-        modern_context = false;
-        opengl_rc = wglCreateContext(window_dc);
-    }
-    
-    if (wglMakeCurrent(window_dc, opengl_rc)) {
+    if (pixel_format) {
+        SetPixelFormat(window_dc, pixel_format, &pfd);
+        HGLRC gl_dummy_render_context = wglCreateContext(window_dc);
+        
+        if (wglMakeCurrent(window_dc, gl_dummy_render_context)) {
+            win32_load_wgl_extensions();
+            
+            // NOTE(yuval): Opengl Extension Loading
 #define WIN32_GET_OPENGL_FUNCTION(name) name = (Type_##name*)wglGetProcAddress(#name)
-        
-        WIN32_GET_OPENGL_FUNCTION(glEnableVertexAttribArray);
-        WIN32_GET_OPENGL_FUNCTION(glDisableVertexAttribArray);
-        WIN32_GET_OPENGL_FUNCTION(glGetAttribLocation);
-        WIN32_GET_OPENGL_FUNCTION(glVertexAttribPointer);
-        WIN32_GET_OPENGL_FUNCTION(glVertexAttribIPointer);
-        WIN32_GET_OPENGL_FUNCTION(glDebugMessageCallbackARB);
-        WIN32_GET_OPENGL_FUNCTION(glBindVertexArray);
-        WIN32_GET_OPENGL_FUNCTION(glGenVertexArrays);
-        WIN32_GET_OPENGL_FUNCTION(glBindBuffer);
-        WIN32_GET_OPENGL_FUNCTION(glGenBuffers);
-        WIN32_GET_OPENGL_FUNCTION(glBufferData);
-        WIN32_GET_OPENGL_FUNCTION(glActiveTexture);
-        WIN32_GET_OPENGL_FUNCTION(glGetStringi);
-        WIN32_GET_OPENGL_FUNCTION(glDeleteProgram);
-        WIN32_GET_OPENGL_FUNCTION(glDeleteShader);
-        WIN32_GET_OPENGL_FUNCTION(glDeleteFramebuffers);
-        WIN32_GET_OPENGL_FUNCTION(glDrawBuffers);
-        WIN32_GET_OPENGL_FUNCTION(glTexImage3D);
-        WIN32_GET_OPENGL_FUNCTION(glTexSubImage3D);
-        WIN32_GET_OPENGL_FUNCTION(glDrawElementsBaseVertex);
-        
-        WIN32_GET_OPENGL_FUNCTION(glUniform1f);
-        WIN32_GET_OPENGL_FUNCTION(glUniform2fv);
-        WIN32_GET_OPENGL_FUNCTION(glUniform3fv);
-        
-        Opengl_Info info = opengl_get_info(modern_context);
-        if (info.opengl_arb_framebuffer_object) {
+            
+            WIN32_GET_OPENGL_FUNCTION(glEnableVertexAttribArray);
+            WIN32_GET_OPENGL_FUNCTION(glDisableVertexAttribArray);
+            WIN32_GET_OPENGL_FUNCTION(glGetAttribLocation);
+            WIN32_GET_OPENGL_FUNCTION(glVertexAttribPointer);
+            WIN32_GET_OPENGL_FUNCTION(glVertexAttribIPointer);
+            WIN32_GET_OPENGL_FUNCTION(glVertexAttribDivisor);
+            WIN32_GET_OPENGL_FUNCTION(glDebugMessageCallbackARB);
+            WIN32_GET_OPENGL_FUNCTION(glBindVertexArray);
+            WIN32_GET_OPENGL_FUNCTION(glGenVertexArrays);
+            WIN32_GET_OPENGL_FUNCTION(glBindBuffer);
+            WIN32_GET_OPENGL_FUNCTION(glGenBuffers);
+            WIN32_GET_OPENGL_FUNCTION(glBufferData);
+            WIN32_GET_OPENGL_FUNCTION(glActiveTexture);
+            WIN32_GET_OPENGL_FUNCTION(glGetStringi);
+            WIN32_GET_OPENGL_FUNCTION(glDeleteProgram);
+            WIN32_GET_OPENGL_FUNCTION(glDeleteShader);
+            WIN32_GET_OPENGL_FUNCTION(glDeleteFramebuffers);
+            WIN32_GET_OPENGL_FUNCTION(glDrawBuffers);
+            WIN32_GET_OPENGL_FUNCTION(glTexImage3D);
+            WIN32_GET_OPENGL_FUNCTION(glTexSubImage3D);
+            WIN32_GET_OPENGL_FUNCTION(glDrawElementsBaseVertex);
+            
+            WIN32_GET_OPENGL_FUNCTION(glUniform1f);
+            WIN32_GET_OPENGL_FUNCTION(glUniform2f);
+            WIN32_GET_OPENGL_FUNCTION(glUniform2fv);
+            WIN32_GET_OPENGL_FUNCTION(glUniform3fv);
             WIN32_GET_OPENGL_FUNCTION(glBindFramebuffer);
             WIN32_GET_OPENGL_FUNCTION(glGenFramebuffers);
             WIN32_GET_OPENGL_FUNCTION(glFramebufferTexture2D);
             WIN32_GET_OPENGL_FUNCTION(glCheckFramebufferStatus);
+            
+            WIN32_GET_OPENGL_FUNCTION(glTexImage2DMultisample);
+            WIN32_GET_OPENGL_FUNCTION(glBlitFramebuffer);
+            
+            WIN32_GET_OPENGL_FUNCTION(glAttachShader);
+            WIN32_GET_OPENGL_FUNCTION(glCompileShader);
+            WIN32_GET_OPENGL_FUNCTION(glCreateProgram);
+            WIN32_GET_OPENGL_FUNCTION(glCreateShader);
+            WIN32_GET_OPENGL_FUNCTION(glLinkProgram);
+            WIN32_GET_OPENGL_FUNCTION(glShaderSource);
+            WIN32_GET_OPENGL_FUNCTION(glUseProgram);
+            WIN32_GET_OPENGL_FUNCTION(glGetProgramInfoLog);
+            WIN32_GET_OPENGL_FUNCTION(glGetShaderInfoLog);
+            WIN32_GET_OPENGL_FUNCTION(glValidateProgram);
+            WIN32_GET_OPENGL_FUNCTION(glGetProgramiv);
+            WIN32_GET_OPENGL_FUNCTION(glGetUniformLocation);
+            WIN32_GET_OPENGL_FUNCTION(glUniform4fv);
+            WIN32_GET_OPENGL_FUNCTION(glUniformMatrix4fv);
+            WIN32_GET_OPENGL_FUNCTION(glUniform1i);
+            
+            WIN32_GET_OPENGL_FUNCTION(glBindAttribLocation);
+            WIN32_GET_OPENGL_FUNCTION(glBindFragDataLocation);
+            WIN32_GET_OPENGL_FUNCTION(glBlendFuncSeparate);
+            WIN32_GET_OPENGL_FUNCTION(glBufferSubData);
+            WIN32_GET_OPENGL_FUNCTION(glDrawArraysInstanced);
+            
+            // NOTE(yuval): Setup real pixel format
+            int pf_attribs_i[] = {
+                WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
+                WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
+                WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
+                WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
+                WGL_COLOR_BITS_ARB, 32,
+                WGL_DEPTH_BITS_ARB, 24,
+                WGL_STENCIL_BITS_ARB, 8,
+                0
+            };
+            
+            UINT num_formats = 0;
+            wglChoosePixelFormatARB(window_dc,
+                                    pf_attribs_i,
+                                    0,
+                                    1,
+                                    &pixel_format,
+                                    &num_formats);
+            
+            if (pixel_format) {
+                const int context_attribs[] = {
+                    WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
+                    WGL_CONTEXT_MINOR_VERSION_ARB, 3,
+                    0
+                };
+                
+                global_win32_opengl_context =
+                    wglCreateContextAttribsARB(window_dc,
+                                               gl_dummy_render_context,
+                                               context_attribs);
+                
+                if(global_win32_opengl_context) {
+                    wglMakeCurrent(window_dc, 0);
+                    wglDeleteContext(gl_dummy_render_context);
+                    wglMakeCurrent(window_dc, global_win32_opengl_context);
+                    wglSwapIntervalEXT(0);
+                }
+            }
+            
+            opengl_init(opengl);
         }
-        
-        WIN32_GET_OPENGL_FUNCTION(glTexImage2DMultisample);
-        WIN32_GET_OPENGL_FUNCTION(glBlitFramebuffer);
-        
-        WIN32_GET_OPENGL_FUNCTION(glAttachShader);
-        WIN32_GET_OPENGL_FUNCTION(glCompileShader);
-        WIN32_GET_OPENGL_FUNCTION(glCreateProgram);
-        WIN32_GET_OPENGL_FUNCTION(glCreateShader);
-        WIN32_GET_OPENGL_FUNCTION(glLinkProgram);
-        WIN32_GET_OPENGL_FUNCTION(glShaderSource);
-        WIN32_GET_OPENGL_FUNCTION(glUseProgram);
-        WIN32_GET_OPENGL_FUNCTION(glGetProgramInfoLog);
-        WIN32_GET_OPENGL_FUNCTION(glGetShaderInfoLog);
-        WIN32_GET_OPENGL_FUNCTION(glValidateProgram);
-        WIN32_GET_OPENGL_FUNCTION(glGetProgramiv);
-        WIN32_GET_OPENGL_FUNCTION(glGetUniformLocation);
-        WIN32_GET_OPENGL_FUNCTION(glUniform4fv);
-        WIN32_GET_OPENGL_FUNCTION(glUniformMatrix4fv);
-        WIN32_GET_OPENGL_FUNCTION(glUniform1i);
-        
-        wglSwapIntervalEXT = (Wgl_Swap_Interval_Ext*)wglGetProcAddress("wglSwapIntervalEXT");
-        if (wglSwapIntervalEXT) {
-            wglSwapIntervalEXT(1);
-        }
-        
-        opengl_init(opengl, info, opengl->supports_srgb_framebuffer);
     }
     
     return opengl;
 }
 
 extern "C" WIN32_LOAD_RENDERER_ENTRY() {
-    Platform_Renderer* result = (Platform_Renderer*)
+    Renderer* result = (Renderer*)
         win32_init_opengl(window_dc, limits);
     
     return result;

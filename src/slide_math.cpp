@@ -114,6 +114,12 @@ make_v3(f32 x, f32 y, f32 z) {
 }
 
 inline Vector3
+make_v3(s32 x, s32 y, s32 z) {
+    Vector3 result = {(f32)x, (f32)y, (f32)z};
+    return result;
+}
+
+inline Vector3
 make_v3(Vector2 xy, f32 z) {
     Vector3 result = {xy.x, xy.y, z};
     return result;
@@ -203,6 +209,12 @@ make_v4(f32 x, f32 y, f32 z, f32 w) {
 }
 
 inline Vector4
+make_v4(s32 x, s32 y, s32 z, s32 w) {
+    Vector4 result = {(f32)x, (f32)y, (f32)z, (f32)w};
+    return result;
+}
+
+inline Vector4
 make_v4(Vector3 xyz, f32 w) {
     Vector4 result = {xyz.x, xyz.y, xyz.z, w};
     return result;
@@ -287,7 +299,7 @@ get_height(Rectangle2i rect) {
 // NOTE(yuval): Matrix4x4 Functions
 //
 
-// NOTE(yuval): Operations
+// NOTE(yuval): Initialization
 inline Matrix4x4
 identity() {
     Matrix4x4 result = {
@@ -298,6 +310,21 @@ identity() {
             {0, 0, 0, 1}
         }
     };
+    
+    return result;
+}
+
+inline Matrix4x4
+make_m4x4_orthographic(f32 left, f32 right, f32 bottom,
+                       f32 top, f32 near_depth, f32 far_depth) {
+    Matrix4x4 result;
+    result.e[0][0] = 2.f / (right - left);
+    result.e[1][1] = 2.f / (top - bottom);
+    result.e[2][2] = -2.f / (far_depth - near_depth);
+    result.e[3][3] = 1.f;
+    result.e[3][0] = (left + right) / (left - right);
+    result.e[3][1] = (bottom + top) / (bottom - top);
+    result.e[3][2] = (far_depth + near_depth) / (near_depth - far_depth);
     
     return result;
 }

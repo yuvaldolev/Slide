@@ -6,7 +6,6 @@
 #include "slide_platform.h"
 #include "slide_assert.h"
 #include "slide_intrinsics.h"
-#include "slide_math.h"
 
 #include "slide_renderer.h"
 

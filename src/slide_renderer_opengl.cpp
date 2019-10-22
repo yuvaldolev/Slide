@@ -138,375 +138,153 @@
 #define GL_MAX_COLOR_TEXTURE_SAMPLES      0x910E
 #define GL_MAX_DEPTH_TEXTURE_SAMPLES      0x910F
 
+#define GL_TEXTURE_COMPARE_MODE           0x884C
+#define GL_COMPARE_REF_TO_TEXTURE         0x884E
+
 #define OPENGL_DEPTH_COMPONENT_KIND GL_DEPTH_COMPONENT32F
 
-global GLenum opengl_all_color_attachments[] = {
-    GL_COLOR_ATTACHMENT0,
-    GL_COLOR_ATTACHMENT1,
-    GL_COLOR_ATTACHMENT2,
-    GL_COLOR_ATTACHMENT3,
-    GL_COLOR_ATTACHMENT4,
-    GL_COLOR_ATTACHMENT5,
-    GL_COLOR_ATTACHMENT6,
-    GL_COLOR_ATTACHMENT7,
-    GL_COLOR_ATTACHMENT8,
-    GL_COLOR_ATTACHMENT9,
-    GL_COLOR_ATTACHMENT10,
-    GL_COLOR_ATTACHMENT11,
-    GL_COLOR_ATTACHMENT12,
-    GL_COLOR_ATTACHMENT13,
-    GL_COLOR_ATTACHMENT14,
-    GL_COLOR_ATTACHMENT15,
-    GL_COLOR_ATTACHMENT16,
-    GL_COLOR_ATTACHMENT17,
-    GL_COLOR_ATTACHMENT18,
-    GL_COLOR_ATTACHMENT19,
-    GL_COLOR_ATTACHMENT20,
-    GL_COLOR_ATTACHMENT21,
-    GL_COLOR_ATTACHMENT22,
-    GL_COLOR_ATTACHMENT23,
-    GL_COLOR_ATTACHMENT24,
-    GL_COLOR_ATTACHMENT25,
-    GL_COLOR_ATTACHMENT26,
-    GL_COLOR_ATTACHMENT27,
-    GL_COLOR_ATTACHMENT28,
-    GL_COLOR_ATTACHMENT29,
-    GL_COLOR_ATTACHMENT30,
-    GL_COLOR_ATTACHMENT31,
-};
+#define OPENGL_FBO_COLOR_OUT_0  0x01
+#define OPENGL_FBO_COLOR_OUT_1  0x02
+#define OPENGL_FBO_COLOR_OUT_2  0x04
+#define OPENGL_FBO_COLOR_OUT_3  0x08
+#define OPENGL_FBO_DEPTH_OUT    0x10
 
-global char* global_shader_header_code = R"FOO(
-#define m4x4 mat4x4
-#define f32 float
-#define s32 int
-#define u32 int unsigned
-#define v4 vec4
-#define v3 vec3
-#define v2 vec2
-#define V4 vec4
-#define V3 vec3
-#define V2 vec2
-#define Lerp(a, t, b) mix(a, b, t)
-#define Clamp01(t) clamp(t, 0, 1)
-#define Clamp(min, t, max) clamp(t, min, max)
-#define Inner(a, b) dot(a, b)
-#define Length(a) length(a)
-#define LengthSq(a) dot(a, a)
-#define SquareRoot(a) sqrt(a)
-#define MaxLightIntensity 10
-
-f32 Clamp01MapToRange(f32 Min, f32 t, f32 Max)
-{
-f32 Range = Max - Min;
-f32 Result = Clamp01((t - Min) / Range);
-
-return(Result);
-}
-
-v2 PackNormal2(v2 N)
-{
-v2 Result;
-Result.x = 0.5f + 0.5f*N.x;
-Result.y = 0.5f + 0.5f*N.y;
-return(Result);
-}
-
-v2 UnpackNormal2(v2 N)
-{
-v2 Result;
-Result.x = -1.0f + 2.0f*N.x;
-Result.y = -1.0f + 2.0f*N.y;
-return(Result);
-}
-
-v3 ExtendNormalZ(v2 N)
-{
-v3 Result = V3(N, sqrt(1 - N.x*N.x - N.y*N.y));
-return(Result);
-}
-
-v3 UnpackNormal3(v2 N)
-{
-v3 Result = ExtendNormalZ(UnpackNormal2(N));
-return(Result);
-}
-
-)FOO";
-
-internal Opengl_Info
-opengl_get_info(b32 is_modern_context) {
-    Opengl_Info result = {};
-    
-    result.modern_context = is_modern_context;
-    result.vendor = (char*)glGetString(GL_VENDOR);
-    result.renderer = (char*)glGetString(GL_RENDERER);
-    result.version = (char*)glGetString(GL_VERSION);
-    
-    if (result.modern_context) {
-        result.shading_language_version =
-            (char*)glGetString(GL_SHADING_LANGUAGE_VERSION);
+internal void
+opengl_bind_fbo(Renderer_Opengl* opengl, Opengl_Fbo* fbo) {
+    if (fbo) {
+        glViewport(0, 0, (GLsizei)fbo->w, (GLsizei)fbo->h);
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo->fbo);
     } else {
-        result.shading_language_version = "(none)";
+        glViewport(0, 0, (GLsizei)opengl->render_width,
+                   (GLsizei)opengl->render_height);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
     
-    if (glGetStringi) {
-        GLint extension_count = 0;
-        glGetIntegerv(GL_NUM_EXTENSIONS, &extension_count);
-        
-        for (GLint extension_index = 0;
-             extension_index < extension_count;
-             ++extension_index) {
-            char* ext_name = (char*)glGetStringi(GL_EXTENSIONS,
-                                                 extension_index);
-            
-            if (strings_match(ext_name, "GL_EXT_texture_sRGB")) {
-                result.opengl_ext_texture_srgb = true;
-            } else if (strings_match(ext_name, "GL_EXT_framebuffer_sRGB")) {
-                result.opengl_ext_framebuffer_srgb = true;
-            } else if (strings_match(ext_name, "GL_ARB_framebuffer_sRGB")) {
-                result.opengl_ext_framebuffer_srgb = true;
-            } else if (strings_match(ext_name, "GL_ARB_framebuffer_object")) {
-                result.opengl_arb_framebuffer_object = true;
-            }
-        }
-    }
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
+                        GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     
-    char* major_at = result.version;
-    char* minor_at = 0;
-    for (char* at = result.version; *at; ++at) {
-        if (at[0] == '.') {
-            minor_at = at + 1;
-            break;
-        }
-    }
-    
-    s32 major = 1;
-    s32 minor = 1;
-    if (minor_at) {
-        major = to_s32(major_at);
-        minor = to_s32(minor_at);
-    }
-    
-    if ((major > 2 ) || ((major == 2) && (minor >= 1))) {
-        result.opengl_ext_texture_srgb = true;
-    }
-    
-    return result;
+    opengl->active_fbo = fbo;
 }
 
-internal b32
-is_valid_array(GLuint index) {
-    b32 result = (index != -1);
-    return result;
+internal Opengl_Fbo
+opengl_make_fbo(u32 width, u32 height, u32 flags) {
+    Opengl_Fbo fbo = {};
+    fbo.flags = flags;
+    fbo.width = width + 1;
+    fbo.height = height + 1;
+    
+    glGenFramebuffers(1, &fbo.fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo.fbo);
+    
+    GLenum colors[4] = {};
+    u32 color_count = 0;
+    
+    if (flags & OPENGL_FBO_COLOR_OUT_0) {
+        glGenTextures(1, &fbo.color_textures[0]);
+        glBindTexture(GL_TEXTURE_2D, fbo.color_textures[0]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height,
+                     0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                               GL_TEXTURE_2D, fbo.color_textures[0], 0);
+        colors[color_count++] = GL_COLOR_ATTACHMENT0;
+    }
+    
+    if (flags & OPENGL_FBO_COLOR_OUT_1) {
+        glGenTextures(1, &fbo.color_textures[1]);
+        glBindTexture(GL_TEXTURE_2D, fbo.color_textures[1]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height,
+                     0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1,
+                               GL_TEXTURE_2D, fbo.color_textures[1], 0);
+        colors[color_count++] = GL_COLOR_ATTACHMENT1;
+    }
+    
+    if (flags & OPENGL_FBO_COLOR_OUT_2) {
+        glGenTextures(1, &fbo.color_textures[2]);
+        glBindTexture(GL_TEXTURE_2D, fbo.color_textures[2]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height,
+                     0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2,
+                               GL_TEXTURE_2D, fbo.color_textures[2], 0);
+        colors[color_count++] = GL_COLOR_ATTACHMENT2;
+    }
+    
+    if (flags & OPENGL_FBO_COLOR_OUT_3) {
+        glGenTextures(1, &fbo.color_textures[3]);
+        glBindTexture(GL_TEXTURE_2D, fbo.color_textures[3]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height,
+                     0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3,
+                               GL_TEXTURE_2D, fbo.color_textures[3], 0);
+        colors[color_count++] = GL_COLOR_ATTACHMENT3;
+    }
+    
+    if (flags & OPENGL_FBO_DEPTH_OUT) {
+        glGenTextures(1, &fbo.depth_texture);
+        glBindTexture(GL_TEXTURE_2D, fbo.depth_texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height,
+                     0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                               GL_TEXTURE_2D, fbo.depth_texture, 0);
+    }
+    
+    glDrawBuffers(color_count, colors);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    
+    return fbo;
+}
+
+internal void
+opengl_clean_up_fbo(Opengl_Fbo* fbo) {
+    glDeleteFramebuffers(1, &fbo->fbo);
+    
+    for (u32 texture_index = 0;
+         texture_index < ARRAY_COUNT(fbo->color_textures);
+         ++texture_index) {
+        if (fbo->color_textures[texture_index]) {
+            glDeleteTextures(1, &fbo->color_textures[texture_index]);
+        }
+    }
+    
+    if (fbo->depth_texture) {
+        glDeleteTextures(1, &fbo->depth_texture);
+    }
+    
+    fbo->fbo = 0;
+}
+
+internal void
+opengl_force_fbo_size(Opengl_Fbo* fbo,
+                      u32 width, u32 height,
+                      u32 flags) {
+    u32 adjusted_width = width + 1;
+    u32 adjusted_height = height + 1;
+    
+    if ((fbo->width != adjusted_height) ||
+        (fbo->height != adjusted_height)) {
+        opengl_clean_up_fbo(fbo);
+        *fbo = opengl_make_fbo(width, height, flags);
+    }
 }
 
 internal void
 use_program_begin(Opengl_Program_Common* prog) {
     glUseProgram(prog->prog_handle);
-    
-    GLuint p_array = prog->vert_p_id;
-    GLuint n_array = prog->vert_n_id;
-    GLuint uv_array = prog->vert_uv_id;
-    GLuint c_array = prog->vert_color_id;
-    GLuint light_index = prog->vert_light_index;
-    GLuint texture_index = prog->vert_texture_index;
-    
-    if (is_valid_array(p_array)) {
-        glEnableVertexAttribArray(p_array);
-        glVertexAttribPointer(p_array, 4, GL_FLOAT, false,
-                              sizeof(Textured_Vertex),
-                              (void*)OFFSET_OF(Textured_Vertex, p));
-    }
-    
-    if (is_valid_array(n_array)) {
-        glEnableVertexAttribArray(n_array);
-        glVertexAttribPointer(n_array, 3, GL_FLOAT, false,
-                              sizeof(Textured_Vertex),
-                              (void*)OFFSET_OF(Textured_Vertex, n));
-    }
-    
-    if (is_valid_array(uv_array)) {
-        glEnableVertexAttribArray(uv_array);
-        glVertexAttribPointer(uv_array, 2, GL_FLOAT, false,
-                              sizeof(Textured_Vertex),
-                              (void*)OFFSET_OF(Textured_Vertex, uv));
-    }
-    
-    if (is_valid_array(c_array)) {
-        glEnableVertexAttribArray(c_array);
-        glVertexAttribPointer(c_array, 4, GL_UNSIGNED_BYTE, true,
-                              sizeof(Textured_Vertex),
-                              (void*)OFFSET_OF(Textured_Vertex, color));
-    }
-    
-    if (is_valid_array(light_index)) {
-        glEnableVertexAttribArray(light_index);
-        glVertexAttribIPointer(light_index, 1, GL_UNSIGNED_SHORT,
-                               sizeof(Textured_Vertex),
-                               (void*)OFFSET_OF(Textured_Vertex, light_index));
-    }
-    
-    if (is_valid_array(texture_index)) {
-        glEnableVertexAttribArray(texture_index);
-        glVertexAttribIPointer(texture_index, 1, GL_UNSIGNED_SHORT,
-                               sizeof(Textured_Vertex),
-                               (void*)OFFSET_OF(Textured_Vertex, texture_index));
-    }
-    
-    for (u32 sampler_index = 0;
-         sampler_index < prog->sampler_count;
-         ++sampler_index) {
-        glUniform1i(prog->samplers[sampler_index], sampler_index);
-    }
-}
-
-internal void
-use_program_begin(Z_Bias_Program* prog, Render_Setup* setup,
-                  f32 alpha_threshold) {
-    use_program_begin(&prog->common);
-    
-    glUniformMatrix4fv(prog->transform_id, 1, GL_TRUE, setup->proj.e[0]);
-    glUniform3fv(prog->camera_p, 1, setup->camera_p.e);
-    glUniform3fv(prog->fog_direction, 1, setup->fog_direction.e);
-    glUniform3fv(prog->fog_color, 1, setup->fog_color.e);
-    glUniform1f(prog->fog_start_distance, setup->fog_start_distance);
-    glUniform1f(prog->fog_end_distance, setup->fog_end_distance);
-    glUniform1f(prog->clip_alpha_start_distance,
-                setup->clip_alpha_start_distance);
-    glUniform1f(prog->clip_alpha_end_distance,
-                setup->clip_alpha_end_distance);
-    glUniform1f(prog->alpha_threshold, alpha_threshold);
 }
 
 internal void
 use_program_end(Opengl_Program_Common* prog) {
     glUseProgram(0);
-    
-    GLuint p_array = prog->vert_p_id;
-    GLuint n_array = prog->vert_n_id;
-    GLuint uv_array = prog->vert_uv_id;
-    GLuint c_array = prog->vert_color_id;
-    GLuint light_index = prog->vert_light_index;
-    GLuint texture_index = prog->vert_texture_index;
-    
-    if (is_valid_array(p_array)) {
-        glDisableVertexAttribArray(p_array);
-    }
-    
-    if (is_valid_array(n_array)) {
-        glDisableVertexAttribArray(n_array);
-    }
-    
-    if (is_valid_array(uv_array)) {
-        glDisableVertexAttribArray(uv_array);
-    }
-    
-    if (is_valid_array(c_array)) {
-        glDisableVertexAttribArray(c_array);
-    }
-    
-    if (is_valid_array(light_index)) {
-        glDisableVertexAttribArray(light_index);
-    }
-    
-    if (is_valid_array(texture_index)) {
-        glDisableVertexAttribArray(texture_index);
-    }
-}
-
-internal GLuint
-get_special_texture_handle_for(Opengl* opengl, Renderer_Texture texture) {
-    u32 index = texture_index_from(texture);
-    ASSERT(index < opengl->max_special_texture_count);
-    
-    GLuint result = opengl->special_texture_handles[index];
-    return result;
-}
-
-internal void
-opengl_manage_textures(Opengl* opengl, Renderer_Texture_Queue* queue) {
-    while (queue->op_count) {
-        Texture_Op* op = &queue->ops[queue->first_op_index];
-        if (op->state == Texture_Op_State::PENDING_LOAD) {
-            break;
-        } else if (op->state == Texture_Op_State::READY_TO_TRANSFER) {
-            Renderer_Texture texture = op->texture;
-            void* data = op->data;
-            
-            if (is_special_texture(texture)) {
-                GLuint handle =
-                    get_special_texture_handle_for(opengl, texture);
-                
-                glBindTexture(GL_TEXTURE_2D_ARRAY, handle);
-                glTexImage3D(GL_TEXTURE_2D_ARRAY, 0,
-                             opengl->default_sprite_texture_format,
-                             texture.width, texture.height, 1, 0,
-                             GL_BGRA_EXT, GL_UNSIGNED_BYTE, data);
-            } else {
-                u32 texture_index = texture_index_from(texture);
-                ASSERT(texture_index < opengl->max_texture_count);
-                
-                glBindTexture(GL_TEXTURE_2D_ARRAY, opengl->texture_array);
-                glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0,
-                                texture_index, texture.width,
-                                texture.height, 1, GL_BGRA_EXT,
-                                GL_UNSIGNED_BYTE, data);
-            }
-            
-            glBindTexture(GL_TEXTURE_2D, 0);
-        } else {
-            ASSERT(op->state == Texture_Op_State::EMPTY);
-        }
-        
-        queue->transfer_memory_first_used = op->transfer_memory_last_used;
-        
-        --queue->op_count;
-        ++queue->first_op_index;
-        if (queue->first_op_index >= ARRAY_COUNT(queue->ops)) {
-            queue->first_op_index = 0;
-        }
-    }
-}
-
-internal void
-opengl_link_samplers(Opengl_Program_Common *prog,
-                     char* sampler_0 = 0,
-                     char* sampler_1 = 0,
-                     char* sampler_2 = 0,
-                     char* sampler_3 = 0,
-                     char* sampler_4 = 0,
-                     char* sampler_5 = 0,
-                     char* sampler_6 = 0,
-                     char* sampler_7 = 0,
-                     char* sampler_8 = 0,
-                     char* sampler_9 = 0,
-                     char* sampler_10 = 0,
-                     char* sampler_11 = 0,
-                     char* sampler_12 = 0,
-                     char* sampler_13 = 0,
-                     char* sampler_14 = 0,
-                     char* sampler_15 = 0) {
-    char* sampler_names[] = {
-        sampler_0, sampler_1, sampler_2,
-        sampler_3, sampler_4, sampler_5,
-        sampler_6, sampler_7, sampler_8,
-        sampler_9, sampler_10, sampler_11,
-        sampler_12, sampler_13, sampler_14,
-        sampler_15
-    };
-    
-    for (u32 sampler_index = 0;
-         sampler_index < ARRAY_COUNT(sampler_names);
-         ++sampler_index) {
-        char* name = sampler_names[sampler_index];
-        
-        if (name) {
-            GLuint sampler_id = glGetUniformLocation(prog->prog_handle,
-                                                     name);
-            ASSERT(prog->sampler_count < ARRAY_COUNT(prog->samplers));
-            prog->samplers[prog->sampler_count++] = sampler_id;
-        }
-    }
 }
 
 internal void
@@ -516,17 +294,19 @@ free_program(Opengl_Program_Common* program) {
 }
 
 internal GLuint
-opengl_create_program(char* defines, char* header_code,
-                      char* vertex_code, char* fragment_code,
+opengl_create_program(char* defines, char* vertex_code,
+                      char* fragment_code,
+                      Opengl_Program_Io* inputs, umm input_count,
+                      Opengl_Program_Io* outputs, umm output_count,
                       Opengl_Program_Common* result) {
     GLuint vertex_shader_id = glCreateShader(GL_VERTEX_SHADER);
-    GLchar* vertex_shader_code[] = {defines, header_code, vertex_code};
+    GLchar* vertex_shader_code[] = {defines, vertex_code};
     glShaderSource(vertex_shader_id, ARRAY_COUNT(vertex_shader_code),
                    vertex_shader_code, 0);
     glCompileShader(vertex_shader_id);
     
     GLuint fragment_shader_id = glCreateShader(GL_FRAGMENT_SHADER);
-    GLchar* fragment_shader_code[] = {defines, header_code, fragment_code};
+    GLchar* fragment_shader_code[] = {defines, fragment_code};
     glShaderSource(fragment_shader_id, ARRAY_COUNT(fragment_shader_code),
                    fragment_shader_code, 0);
     glCompileShader(fragment_shader_id);
@@ -534,6 +314,19 @@ opengl_create_program(char* defines, char* header_code,
     GLuint program_id = glCreateProgram();
     glAttachShader(program_id, vertex_shader_id);
     glAttachShader(program_id, fragment_shader_id);
+    
+    // NOTE(yuval): Shader Inputs Specification
+    for (umm input_index = 0; input_index < input_count; ++input_index) {
+        glBindAttribLocation(program_id, inputs[input_index].index,
+                             inputs[input_index].name);
+    }
+    
+    // NOTE(yuval): Shader Output Specification
+    for (umm output_index = 0; output_index < output_count; ++output_index) {
+        glBindFragDataLocation(program_id, outputs[output_index].index,
+                               outputs[output_index].name);
+    }
+    
     glLinkProgram(program_id);
     
     glValidateProgram(program_id);
@@ -559,859 +352,639 @@ opengl_create_program(char* defines, char* header_code,
     glDeleteShader(fragment_shader_id);
     
     result->prog_handle = program_id;
-    result->vert_p_id = glGetAttribLocation(program_id, "VertP");
-    result->vert_n_id = glGetAttribLocation(program_id, "VertN");
-    result->vert_uv_id = glGetAttribLocation(program_id, "VertUV");
-    result->vert_color_id = glGetAttribLocation(program_id, "VertColor");
-    result->vert_light_index =
-        glGetAttribLocation(program_id, "VertLightIndex");
-    result->vert_texture_index =
-        glGetAttribLocation(program_id, "VertTextureIndex");
-    result->sampler_count = 0;
     
     return program_id;
 }
 
 internal void
-compile_final_stretch(Opengl* opengl, Opengl_Program_Common* result) {
+compile_filled_rect_program(Opengl_Filled_Rect_Program* result) {
     char defines[1024];
-    format_string(defines, sizeof(defines),
-                  "#version 330\n"
-                  "#define ShaderSimTexWriteSRGB %d\n"
-                  "#define ShaderSimTexReadSRGB %d\n",
-                  opengl->shader_sim_tex_write_srgb,
-                  opengl->shader_sim_tex_read_srgb);
+    format_string(defines, sizeof(defines), "#version 330\n");
     
-    char* vertex_code = R"FOO(
-    // Vertex code
-    in v4 VertP;
-    in v2 VertUV;
+    char* vertex_code =
+        "in vec3 vert_00;\n"
+        "in vec3 vert_01;\n"
+        "in vec3 vert_10;\n"
+        "in vec3 vert_11;\n"
+        "in vec4 vert_color00;\n"
+        "in vec4 vert_color01;\n"
+        "in vec4 vert_color10;\n"
+        "in vec4 vert_color11;\n"
+        "out vec4 rect_color;\n"
+        "\n"
+        "uniform mat4 view_projection;\n"
+        "\n"
+        "void main()\n"
+        "{\n"
+        "    vec3 vertices[] = vec3[](vert_00, vert_01, vert_10, vert_11);\n"
+        "    vec4 world_space = vec4(vertices[gl_VertexID], 1);\n"
+        "    vec4 clip_space = view_projection * world_space;\n"
+        "    gl_Position = clip_space;\n"
+        "    vec4 colors[] = vec4[](vert_color00, vert_color01, vert_color10, vert_color11);\n"
+        "    rect_color = colors[gl_VertexID];\n"
+        "}\n";
     
-    smooth out v2 FragUV;
+    char* fragment_code =
+        "in vec4 rect_color;\n"
+        "out vec4 color;\n"
+        "void main()\n"
+        "{\n"
+        "    color = rect_color;\n"
+        "}\n";
     
-    void main(void)
-    {
-    gl_Position = VertP;
-    FragUV = VertUV;
-    }
-    )FOO";
+    Opengl_Program_Io inputs[] = {
+        {7, "vert_color11"},
+        {6, "vert_color10"},
+        {5, "vert_color01"},
+        {4, "vert_color00"},
+        {3, "vert_11"},
+        {2, "vert_10"},
+        {1, "vert_01"},
+        {0, "vert_00"}
+    };
     
-    char* fragment_code = R"FOO(
-    // Fragment code
-    uniform sampler2D Image;
+    Opengl_Program_Io outputs[] = {
+        {0, "color"}
+    };
     
-    smooth in vec2 FragUV;
+    GLuint prog = opengl_create_program(defines, vertex_code,
+                                        fragment_code,
+                                        inputs, ARRAY_COUNT(inputs),
+                                        outputs, ARRAY_COUNT(outputs),
+                                        &result->common);
     
-    out vec4 BlendUnitColor;
-    
-    void main(void)
-    {
-    BlendUnitColor = texture(Image, FragUV);
-    }
-    )FOO";
-    
-    GLuint prog = opengl_create_program(defines,
-                                        global_shader_header_code,
-                                        vertex_code, fragment_code,
-                                        result);
-    opengl_link_samplers(result, "Image");
+    result->view_projection =
+        glGetUniformLocation(prog, "view_projection");
 }
 
 internal void
-compile_peel_composite(Opengl* opengl, Opengl_Program_Common* result) {
+compile_fxaa_program(Opengl_Fxaa_Program* result) {
     char defines[1024];
-    format_string(defines, sizeof(defines),
-                  "#version 330\n"
-                  "#define ShaderSimTexWriteSRGB %d\n"
-                  "#define ShaderSimTexReadSRGB %d\n"
-                  "#define DepthPeel %d\n",
-                  opengl->shader_sim_tex_write_srgb,
-                  opengl->shader_sim_tex_read_srgb,
-                  false);
+    format_string(defines, sizeof(defines), "#version 330\n");
     
-    char* vertex_code = R"FOO(
-    // Vertex code
-    in v4 VertP;
-    in v4 VertColor;
-    in v2 VertUV;
-    smooth out v2 FragUV;
-    smooth out v4 FragColor;
-    void main(void)
-    {
-    gl_Position = VertP;
-    FragUV = VertUV;
-    FragColor = VertColor;
-    }
-    )FOO";
+    char* vertex_code =
+        "out vec2 v_rgbNW;\n"
+        "out vec2 v_rgbNE;\n"
+        "out vec2 v_rgbSW;\n"
+        "out vec2 v_rgbSE;\n"
+        "out vec2 v_rgbM;\n"
+        "out vec2 frag_uv;\n"
+        "\n"
+        "uniform vec2 color_tex_resolution;\n"
+        "\n"
+        "void GetTexCoords(vec2 fragCoord, vec2 resolution,\n"
+        "                  out vec2 v_rgbNW, out vec2 v_rgbNE,\n"
+        "                  out vec2 v_rgbSW, out vec2 v_rgbSE,\n"
+        "                  out vec2 v_rgbM)\n"
+        "{\n"
+        "	vec2 inverseVP = 1.0 / resolution.xy;\n"
+        "	v_rgbNW = (fragCoord + vec2(-1.0, -1.0)) * inverseVP;\n"
+        "	v_rgbNE = (fragCoord + vec2(1.0, -1.0)) * inverseVP;\n"
+        "	v_rgbSW = (fragCoord + vec2(-1.0, 1.0)) * inverseVP;\n"
+        "	v_rgbSE = (fragCoord + vec2(1.0, 1.0)) * inverseVP;\n"
+        "	v_rgbM = vec2(fragCoord * inverseVP);\n"
+        "    \n"
+        "}\n"
+        "\n"
+        "void main()\n"
+        "{\n"
+        "    vec4 vertices[] = vec4[](vec4(0, 0, 0, 1),\n"
+        "                             vec4(0, 1, 0, 1),\n"
+        "                             vec4(1, 0, 0, 1),\n"
+        "                             vec4(1, 1, 0, 1));\n"
+        "    frag_uv = vertices[gl_VertexID].xy;\n"
+        "    vec2 fragCoord = frag_uv * color_tex_resolution;\n"
+        "    GetTexCoords(fragCoord, color_tex_resolution, v_rgbNW, v_rgbNE, v_rgbSW, v_rgbSE, v_rgbM);\n"
+        "    gl_Position = (vertices[gl_VertexID] * 2 - 1);\n"
+        "}\n";
     
-    char* fragment_code = R"FOO(
-    // Fragment code
-    uniform sampler2D Peel0Sampler;
-    uniform sampler2D Peel1Sampler;
-    uniform sampler2D Peel2Sampler;
-    uniform sampler2D Peel3Sampler;
+    char* fragment_code =
+        "in vec2 v_rgbNW;\n"
+        "in vec2 v_rgbNE;\n"
+        "in vec2 v_rgbSW;\n"
+        "in vec2 v_rgbSE;\n"
+        "in vec2 v_rgbM;\n"
+        "in vec2 frag_uv;\n"
+        "\n"
+        "out vec4 color;\n"
+        "\n"
+        "uniform vec2 color_tex_resolution;\n"
+        "uniform sampler2D color_tex;\n"
+        "\n"
+        "#define FXAA_REDUCE_MIN (1.0 / 128.0)\n"
+        "#define FXAA_REDUCE_MUL (1.0 / 8.0)\n"
+        "#define FXAA_SPAN_MAX   4.0\n"
+        "\n"
+        "vec4\n"
+        "FXAA(sampler2D tex, vec2 frag_coord, vec2 resolution,\n"
+        "     vec2 v_rgb_nw, vec2 v_rgb_ne, vec2 v_rgb_sw, vec2 v_rgb_se,\n"
+        "     vec2 v_rgbM)\n"
+        "{\n"
+        "    vec4 color;\n"
+        "    mediump vec2 inverseVP = vec2(1.0 / resolution.x, 1.0 / resolution.y);\n"
+        "    vec3 rgb_nw = texture2D(tex, v_rgb_nw).xyz;\n"
+        "    vec3 rgb_ne = texture2D(tex, v_rgb_ne).xyz;\n"
+        "    vec3 rgb_sw = texture2D(tex, v_rgb_sw).xyz;\n"
+        "    vec3 rgb_se = texture2D(tex, v_rgb_se).xyz;\n"
+        "    vec4 texColor = texture2D(tex, v_rgbM);\n"
+        "    vec3 rgbM  = texColor.xyz;\n"
+        "    vec3 luma = vec3(0.299, 0.587, 0.114);\n"
+        "    float lumaNW = dot(rgb_nw, luma);\n"
+        "    float lumaNE = dot(rgb_ne, luma);\n"
+        "    float lumaSW = dot(rgb_sw, luma);\n"
+        "    float lumaSE = dot(rgb_se, luma);\n"
+        "    float lumaM  = dot(rgbM,  luma);\n"
+        "    float lumaMin = min(lumaM, min(min(lumaNW, lumaNE), min(lumaSW, lumaSE)));\n"
+        "    float lumaMax = max(lumaM, max(max(lumaNW, lumaNE), max(lumaSW, lumaSE)));\n"
+        "    \n"
+        "    mediump vec2 dir;\n"
+        "    dir.x = -((lumaNW + lumaNE) - (lumaSW + lumaSE));\n"
+        "    dir.y =  ((lumaNW + lumaSW) - (lumaNE + lumaSE));\n"
+        "    \n"
+        "    float dirReduce = max((lumaNW + lumaNE + lumaSW + lumaSE) *\n"
+        "                          (0.25 * FXAA_REDUCE_MUL), FXAA_REDUCE_MIN);\n"
+        "    \n"
+        "    float rcpDirMin = 1.0 / (min(abs(dir.x), abs(dir.y)) + dirReduce);\n"
+        "    dir = min(vec2(FXAA_SPAN_MAX, FXAA_SPAN_MAX),\n"
+        "              max(vec2(-FXAA_SPAN_MAX, -FXAA_SPAN_MAX),\n"
+        "                  dir * rcpDirMin)) * inverseVP;\n"
+        "    \n"
+        "    vec3 rgbA = 0.5 * (\n"
+        "        texture2D(tex, frag_coord * inverseVP + dir * (1.0 / 3.0 - 0.5)).xyz +\n"
+        "        texture2D(tex, frag_coord * inverseVP + dir * (2.0 / 3.0 - 0.5)).xyz);\n"
+        "    vec3 rgbB = rgbA * 0.5 + 0.25 * (\n"
+        "        texture2D(tex, frag_coord * inverseVP + dir * -0.5).xyz +\n"
+        "        texture2D(tex, frag_coord * inverseVP + dir * 0.5).xyz);\n"
+        "    \n"
+        "    float lumaB = dot(rgbB, luma);\n"
+        "    if ((lumaB < lumaMin) || (lumaB > lumaMax))\n"
+        "        color = vec4(rgbA, texColor.a);\n"
+        "    else\n"
+        "        color = vec4(rgbB, texColor.a);\n"
+        "    return color;\n"
+        "}\n"
+        "\n"
+        "void main()\n"
+        "{\n"
+        "    vec2 fragCoord = frag_uv * color_tex_resolution; \n"
+        "    color = FXAA(color_tex, fragCoord, color_tex_resolution, v_rgbNW, v_rgbNE, v_rgbSW, v_rgbSE, v_rgbM);\n"
+        "}\n";
     
-    smooth in vec2 FragUV;
-    smooth in vec4 FragColor;
+    Opengl_Program_Io outputs[] = {
+        {0, "color"}
+    };
     
-    out vec4 BlendUnitColor;
+    GLuint prog = opengl_create_program(defines, vertex_code,
+                                        fragment_code,
+                                        0, 0,
+                                        outputs, ARRAY_COUNT(outputs),
+                                        &result->common);
     
-    void main(void)
-    {
-    vec4 Peel0 = texture(Peel0Sampler, FragUV);
-    vec4 Peel1 = texture(Peel1Sampler, FragUV);
-    vec4 Peel2 = texture(Peel2Sampler, FragUV);
-    vec4 Peel3 = texture(Peel3Sampler, FragUV);
-    
-    #if ShaderSimTexReadSRGB
-    Peel0.rgb *= Peel0.rgb;
-    Peel1.rgb *= Peel1.rgb;
-    Peel2.rgb *= Peel2.rgb;
-    Peel3.rgb *= Peel3.rgb;
-    #endif
-    
-    #if 0
-    Peel3.rgb *= (1.0f / Peel3.a);
-    #endif
-    
-    #if 0
-    Peel0.rgb = Peel0.a*V3(0, 0, 1);
-    Peel1.rgb = Peel1.a*V3(0, 1, 0);
-    Peel2.rgb = Peel2.a*V3(1, 0, 0);
-    Peel3.rgb = V3(0, 0, 0);
-    #endif
-    
-    BlendUnitColor.rgb = Peel3.rgb;
-    BlendUnitColor.rgb = Peel2.rgb + (1 - Peel2.a)*BlendUnitColor.rgb;
-    BlendUnitColor.rgb = Peel1.rgb + (1 - Peel1.a)*BlendUnitColor.rgb;
-    BlendUnitColor.rgb = Peel0.rgb + (1 - Peel0.a)*BlendUnitColor.rgb;
-    
-    #if ShaderSimTexWriteSRGB
-    BlendUnitColor.rgb = sqrt(BlendUnitColor.rgb);
-    #endif
-    }
-    )FOO";
-    
-    GLuint prog = opengl_create_program(defines,
-                                        global_shader_header_code,
-                                        vertex_code, fragment_code,
-                                        result);
-    opengl_link_samplers(result, "Peel0Sampler", "Peel1Sampler",
-                         "Peel2Sampler", "Peel3Sampler");
+    result->color_tex = glGetUniformLocation(prog, "color_tex");
+    result->color_tex_resolution =
+        glGetUniformLocation(prog, "color_tex_resolution");
 }
 
 internal void
-compile_z_bias_program(Opengl* opengl, Z_Bias_Program* result,
-                       b32 depth_peel, b32 lighting_disabled) {
+compile_world_program(Opengl_World_Program* result) {
     char defines[1024];
-    format_string(defines, sizeof(defines),
-                  "#version 330\n"
-                  "#define ShaderSimTexWriteSRGB %d\n"
-                  "#define ShaderSimTexReadSRGB %d\n"
-                  "#define DepthPeel %d\n"
-                  "#define LIGHTING_DISABLED %d\n",
-                  opengl->shader_sim_tex_write_srgb,
-                  opengl->shader_sim_tex_read_srgb,
-                  depth_peel,
-                  lighting_disabled);
+    format_string(defines, sizeof(defines), "#version 330\n");
     
-    char* vertex_code = R"FOO(
-    // Vertex code
-    uniform m4x4 Transform;
+    char* vertex_code =
+        "out vec2 frag_uv;\n"
+        "\n"
+        "void main()\n"
+        "{\n"
+        "    vec4 vertices[] = vec4[](vec4(0, 0, 0, 1),\n"
+        "                             vec4(0, 1, 0, 1),\n"
+        "                             vec4(1, 0, 0, 1),\n"
+        "                             vec4(1, 1, 0, 1));\n"
+        "    frag_uv = vertices[gl_VertexID].xy;\n"
+        "    gl_Position = (vertices[gl_VertexID] * 2 - 1);\n"
+        "}\n";
     
-    uniform v3 CameraP;
-    uniform v3 FogDirection;
+    char* fragment_code =
+        "in vec2 frag_uv;\n"
+        "out vec4 color;\n"
+        "uniform mat4 inverse_view_projection;\n"
+        "uniform mat4 shadow_view_projection;\n"
+        "uniform sampler2D albedo_texture;\n"
+        "uniform sampler2D normal_texture;\n"
+        "uniform sampler2D depth_texture;\n"
+        "uniform sampler2DShadow shadow_map_texture;\n"
+        "\n"
+        "struct Light\n"
+        "{\n"
+        "    vec3 position;\n"
+        "    vec3 color;\n"
+        "    float radius;\n"
+        "    float intensity;\n"
+        "};\n"
+        "uniform Light lights[16];\n"
+        "uniform int light_count;\n"
+        "\n"
+        "void main()\n"
+        "{\n"
+        "    vec4 albedo = texture(albedo_texture, frag_uv);\n"
+        "    vec4 normal = texture(normal_texture, frag_uv);\n"
+        "    float depth = texture(depth_texture, frag_uv).r * 2 - 1;\n"
+        "    \n"
+        "    vec4 world_space_position;\n"
+        "    {\n"
+        "        vec4 camera_clip_space = vec4(frag_uv*2 - 1, depth, 1);\n"
+        "        vec4 world_space = inverse_view_projection * camera_clip_space + vec4(normal.xyz, 0)*0.02;\n"
+        "        world_space /= world_space.w;\n"
+        "        world_space_position = world_space;\n"
+        "    }\n"
+        "    \n"
+        "    float world_space_y_modifier = 1;\n"
+        "    {\n"
+        "        world_space_y_modifier = 1 - clamp(world_space_position.y, -15, 0) / -15;\n"
+        "    }\n"
+        "    \n"
+        "    float depth_modifier = 1;\n"
+        "    {\n"
+        "    }\n"
+        "    \n"
+        "    vec3 point_light_modifier = vec3(0.1);\n"
+        "    {\n"
+        "        for(int i = 0; i < light_count; ++i)\n"
+        "        {\n"
+        "            vec3 fragment_to_light = lights[i].position - world_space_position.xyz;\n"
+        "            float distance_squared = dot(fragment_to_light, fragment_to_light);\n"
+        "            float radius_squared = lights[i].radius * lights[i].radius;\n"
+        "            if(distance_squared < radius_squared)\n"
+        "            {\n"
+        "                float factor = clamp(1 - distance_squared/radius_squared, 0, 1);\n"
+        "                factor *= (dot(normal.xyz, normalize(fragment_to_light)) + 1.f) / 2.f;\n"
+        "                factor *= lights[i].intensity;\n"
+        "                point_light_modifier += factor*lights[i].color;\n"
+        "            }\n"
+        "        }\n"
+        "    }\n"
+        "    \n"
+        "    float shadow_modifier = 1;\n"
+        "    {\n"
+        "        vec4 shadow_clip_space = shadow_view_projection * world_space_position;\n"
+        "        shadow_clip_space /= shadow_clip_space.w;\n"
+        "        \n"
+        "        float actual_depth = (shadow_clip_space.z+1)/2;\n"
+        "        vec3 shadow_sample_pos = vec3((shadow_clip_space.xy + 1)/2, actual_depth);\n"
+        "        float shadow_sample = (textureOffset(shadow_map_texture, shadow_sample_pos, ivec2(0, 0)) +\n"
+        "                               textureOffset(shadow_map_texture, shadow_sample_pos, ivec2(-1, +0)) +\n"
+        "                               textureOffset(shadow_map_texture, shadow_sample_pos, ivec2(+1, +0)) +\n"
+        "                               textureOffset(shadow_map_texture, shadow_sample_pos, ivec2(+0, -1)) +\n"
+        "                               textureOffset(shadow_map_texture, shadow_sample_pos, ivec2(+0, +1))) /\n"
+        "            5.0;\n"
+        "        shadow_modifier = shadow_sample/2 + 0.5;\n"
+        "    }\n"
+        "    \n"
+        "    float diffuse_modifier = 1;\n"
+        "    {\n"
+        "        vec3 light_vector = normalize(vec3(1, 1, 1));\n"
+        "        diffuse_modifier = (1+dot(normal.xyz, light_vector))/2;\n"
+        "    }\n"
+        "    \n"
+        "    color = albedo;\n"
+        "    color.rgb *= (point_light_modifier *\n"
+        "                  shadow_modifier *\n"
+        "                  diffuse_modifier *\n"
+        "                  world_space_y_modifier *\n"
+        "                  depth_modifier);\n"
+        "}\n";
     
-    in v4 VertP;
-    in v3 VertN;
-    in v2 VertUV;
-    in v4 VertColor;
-    in int VertLightIndex;
-    in int VertTextureIndex;
+    Opengl_Program_Io outputs[] = {
+        {0, "color"}
+    };
     
-    smooth out v2 FragUV;
-    smooth out v4 FragColor;
-    smooth out f32 FogDistance;
-    smooth out v3 WorldP;
-    smooth out v3 WorldN;
+    GLuint prog = opengl_create_program(defines, vertex_code,
+                                        fragment_code,
+                                        0, 0,
+                                        outputs, ARRAY_COUNT(outputs),
+                                        &result->common);
     
-    flat out int FragLightIndex;
-    flat out int FragTextureIndex;
-    
-    void main(void)
-    {
-    v4 InVertex = V4(VertP.xyz, 1.0);
-    f32 ZBias = VertP.w;
-    
-    v4 ZVertex = InVertex;
-    ZVertex.z += ZBias;
-    
-    v4 ZMinTransform = Transform*InVertex;
-    v4 ZMaxTransform = Transform*ZVertex;
-    
-    f32 ModifiedZ = (ZMinTransform.w / ZMaxTransform.w)*ZMaxTransform.z;
-    
-    gl_Position = vec4(ZMinTransform.x, ZMinTransform.y, ModifiedZ, ZMinTransform.w);
-    
-    FragUV = VertUV.xy;
-    FragColor = VertColor;
-    
-    FogDistance = Inner(ZVertex.xyz - CameraP, FogDirection);
-    WorldP = ZVertex.xyz;
-    WorldN = VertN;
-    
-    FragLightIndex = VertLightIndex;
-    FragTextureIndex = VertTextureIndex;
-    }
-    )FOO";
-    
-    char* fragment_code = R"FOO(
-    // Fragment code
-    
-    //uniform v4 FogColor;
-    uniform sampler2DArray TextureSampler;
-    #if DepthPeel
-    uniform sampler2D DepthSampler;
-    #endif
-    uniform v3 FogColor;
-    uniform f32 AlphaThreshold;
-    uniform f32 FogStartDistance;
-    uniform f32 FogEndDistance;
-    uniform f32 ClipAlphaStartDistance;
-    uniform f32 ClipAlphaEndDistance;
-    uniform v3 CameraP;
-    
-    uniform sampler1D Light0Sampler;
-    uniform sampler1D Light1Sampler;
-    
-    smooth in vec2 FragUV;
-    smooth in vec4 FragColor;
-    smooth in f32 FogDistance;
-    smooth in vec3 WorldP;
-    smooth in vec3 WorldN;
-    
-    flat in int FragLightIndex;
-    flat in int FragTextureIndex;
-    
-    out v4 BlendUnitColor;
-    
-    v4 RunningSum;
-    void FetchAndSum(int LightI)
-    {
-    v4 LightData0 = texelFetch(Light0Sampler, LightI, 0);
-    v4 LightData1 = texelFetch(Light1Sampler, LightI, 0);
-    
-    v3 LightP = LightData0.xyz;
-    v3 LightC = LightData1.rgb;
-    v3 LightD;
-    LightD.x = LightData0.a;
-    LightD.y = LightData1.a;
-    LightD.z = SquareRoot(1.0f - (LightD.x*LightD.x + LightD.y*LightD.y));
-    if(LightC.r < 0)
-    {
-    LightC.r = -LightC.r;
-    LightD.z = -LightD.z;
-    }
-    
-    f32 Contrib = 1.0f / (1.0f + LengthSq(LightP - WorldP));
-    f32 DirFalloff = Clamp01(Inner(LightD.rgb, WorldN));
-    
-    RunningSum.rgb += Contrib*DirFalloff*LightC.rgb;
-    RunningSum.a += Contrib;
-    }
-    
-    v3 SumLight()
-    {
-    RunningSum = V4(0, 0, 0, 0);
-    
-    FetchAndSum(FragLightIndex + 0);
-    FetchAndSum(FragLightIndex + 1);
-    FetchAndSum(FragLightIndex + 2);
-    FetchAndSum(FragLightIndex + 3);
-    
-    v4 Result = RunningSum;
-    
-    if(Result.a > 0.0f)
-    {
-    Result.rgb *= 1.0f/Result.a;
-    }
-    
-    return(Result.rgb);
-    }
-    
-    void main(void)
-    {
-    #if DepthPeel
-    f32 ClipDepth = texelFetch(DepthSampler, ivec2(gl_FragCoord.xy), 0).r;
-    if(gl_FragCoord.z <= ClipDepth)
-    {
-    discard;
-    }
-    #endif
-    
-    vec3 ArrayUV = vec3(FragUV.x, FragUV.y, f32(FragTextureIndex));
-    vec4 TexSample = texture(TextureSampler, ArrayUV);
-    #if ShaderSimTexReadSRGB
-    TexSample.rgb *= TexSample.rgb;
-    #endif
-    
-    f32 FogAmount = Clamp01MapToRange(FogStartDistance, FogDistance, FogEndDistance);
-    f32 AlphaAmount = Clamp01MapToRange(ClipAlphaStartDistance, FogDistance, ClipAlphaEndDistance);
-    v4 ModColor = AlphaAmount*FragColor*TexSample;
-    if(ModColor.a > AlphaThreshold)
-    {
-    v3 SurfaceReflect = ModColor.rgb;
-    
-    #if LIGHTING_DISABLED
-    #else
-    if(FragLightIndex != 0)
-    {
-    v3 L = SumLight();
-    SurfaceReflect *= L;
-    }
-    #endif
-    
-    SurfaceReflect.rgb = Lerp(SurfaceReflect.rgb, FogAmount, FogColor.rgb*ModColor.a);
-    SurfaceReflect.r = Clamp01(SurfaceReflect.r);
-    SurfaceReflect.g = Clamp01(SurfaceReflect.g);
-    SurfaceReflect.b = Clamp01(SurfaceReflect.b);
-    
-    #if ShaderSimTexWriteSRGB
-    SurfaceReflect = sqrt(SurfaceReflect.rgb);
-    #endif
-    
-    BlendUnitColor.rgb = SurfaceReflect;
-    BlendUnitColor.a = ModColor.a;
-    }
-    else
-    {
-    discard;
-    }
-    }
-    )FOO";
-    
-    GLuint prog = opengl_create_program(
-        defines, global_shader_header_code,
-        vertex_code, fragment_code, &result->common);
-    opengl_link_samplers(&result->common, "TextureSampler",
-                         "DepthSampler", "Light0Sampler",
-                         "Light1Sampler");
-    
-    result->transform_id = glGetUniformLocation(prog, "Transform");
-    result->camera_p = glGetUniformLocation(prog, "CameraP");
-    result->fog_direction = glGetUniformLocation(prog, "FogDirection");
-    result->fog_color = glGetUniformLocation(prog, "FogColor");
-    result->fog_start_distance =
-        glGetUniformLocation(prog, "FogStartDistance");
-    result->fog_end_distance = glGetUniformLocation(prog, "FogEndDistance");
-    result->clip_alpha_start_distance =
-        glGetUniformLocation(prog, "ClipAlphaStartDistance");
-    result->clip_alpha_end_distance = glGetUniformLocation(prog, "ClipAlphaEndDistance");
-    result->alpha_threshold = glGetUniformLocation(prog, "AlphaThreshold");
+    result->inverse_view_projection =
+        glGetUniformLocation(prog, "inverse_view_projection");
+    result->shadow_view_projection =
+        glGetUniformLocation(prog, "shadow_view_projection");
+    result->albedo_texture = glGetUniformLocation(prog, "albedo_texture");
+    result->normal_texture = glGetUniformLocation(prog, "normal_texture");
+    result->depth_texture = glGetUniformLocation(prog, "depth_texture");
+    result->shadow_map_texture =
+        glGetUniformLocation(prog, "shadow_map_texture");
 }
 
-/*
-internal Opengl_Framebuffer*
-get_depth_peel_read_buffer(Opengl* opengl, u32 index) {
-Opengl_Framebuffer* peel_buffer = opengl->depth_peel_buffer + index;
-
-if (opengl->multisampling) {
-peel_buffer = opengl->depth_peek
+internal void
+opengl_set_instanced_float_attribute_data(int index, int stride,
+                                          int size, int offset) {
+    glEnableVertexAttribArray(index);
+    glVertexAttribPointer(index, size, GL_FLOAT, GL_FALSE, stride,
+                          (void*)(sizeof(f32) * offset));
+    glVertexAttribDivisor(index, 1);
 }
-}
-*/
 
-internal GLuint
-framebuffer_tex_image(Opengl* opengl, GLuint slot,
-                      u32 width, u32 height,
-                      GLint filter_kind, GLuint format) {
-    GLuint result = 0;
+internal void
+opengl_init(Renderer_Opengl* opengl) {
+    glDisable(GL_CULL_FACE);
+    glEnable(GL_BLEND);
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA,
+                        GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    glDisable(GL_DEPTH_TEST);
     
-    glGenTextures(1, &result);
-    glBindTexture(slot, result);
+    glGenVertexArrays(1, &opengl->all_purpose_vao);
     
-    if (slot == GL_TEXTURE_2D_MULTISAMPLE) {
-        glTexImage2DMultisample(slot, opengl->max_multisample_count,
-                                format, width, height, GL_FALSE);
-    } else {
-        glTexImage2D(slot, 0, format, width, height, 0,
-                     (format == OPENGL_DEPTH_COMPONENT_KIND) ? GL_DEPTH_COMPONENT : GL_BGRA_EXT,
-                     GL_UNSIGNED_BYTE, 0);
+    // NOTE(yuval): Filled Rectangle Data Initialization
+    glGenVertexArrays(1, &opengl->filled_rect_vao);
+    glBindVertexArray(opengl->filled_rect_vao);
+    
+    glGenBuffers(1, &opengl->filled_rect_instance_buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, opengl->filled_rect_instance_buffer);
+    glBufferData(GL_ARRAY_BUFFER, opengl->base.max_filled_rect_bytes,
+                 0, GL_DYNAMIC_DRAW);
+    opengl_set_instanced_float_attribute_data(
+        0, sizeof(Renderer_Filled_Rect), 3, 0);
+    opengl_set_instanced_float_attribute_data(
+        1, sizeof(Renderer_Filled_Rect), 3, 3);
+    opengl_set_instanced_float_attribute_data(
+        2, sizeof(Renderer_Filled_Rect), 3, 6);
+    opengl_set_instanced_float_attribute_data(
+        3, sizeof(Renderer_Filled_Rect), 3, 9);
+    opengl_set_instanced_float_attribute_data(
+        4, sizeof(Renderer_Filled_Rect), 4, 12);
+    opengl_set_instanced_float_attribute_data(
+        5, sizeof(Renderer_Filled_Rect), 4, 16);
+    opengl_set_instanced_float_attribute_data(
+        6, sizeof(Renderer_Filled_Rect), 4, 20);
+    opengl_set_instanced_float_attribute_data(
+        7, sizeof(Renderer_Filled_Rect), 4, 24);
+    glBindVertexArray(0);
+    
+    opengl->active_fbo = 0;
+    opengl->main_fbo.w = 0;
+    opengl->main_2d_fbo.w = 0;
+    opengl->world_fbo.w = 0;
+    opengl->screen_size_scratch_fbo.w = 0;
+    
+    compile_world_program(&opengl->world_program);
+    compile_fxaa_program(&opengl->fxaa_program);
+    compile_filled_rect_program(&opengl->filled_rect_program);
+}
+
+internal void
+opengl_begin_frame(Renderer_Opengl* opengl,
+                   f32 render_width, f32 render_height) {
+    opengl->render_width = render_width;
+    opengl->render_height = render_height;
+    
+    opengl->base.active_request.kind = Render_Request_Kind::NONE;
+    opengl->base.request_count = 0;
+    opengl->base.filled_rect_instance_data_alloc_pos = 0;
+    
+    opengl_force_fbo_size(&opengl->main_fbo,
+                          (u32)render_width, (u32)render_height,
+                          OPENGL_FBO_COLOR_OUT_0 |
+                          OPENGL_FBO_DEPTH_OUT);
+    
+    opengl_force_fbo_size(&opengl->main_2d_fbo,
+                          (u32)render_width, (u32)render_height,
+                          OPENGL_FBO_COLOR_OUT_0 |
+                          OPENGL_FBO_DEPTH_OUT);
+    
+    opengl_force_fbo_size(&opengl->world_fbo,
+                          (u32)render_width, (u32)render_height,
+                          OPENGL_FBO_COLOR_OUT_0 |
+                          OPENGL_FBO_COLOR_OUT_1 |
+                          OPENGL_FBO_DEPTH_OUT);
+    
+    opengl_force_fbo_size(&opengl->shadow_map_fbo,
+                          1024, 1024,
+                          OPENGL_FBO_DEPTH_OUT);
+    
+    opengl_force_fbo_size(&opengl->screen_size_scratch_fbo,
+                          (u32)render_width, (u32)render_height,
+                          OPENGL_FBO_COLOR_OUT_0);
+}
+
+internal void
+opengl_end_frame(Renderer_Opengl* opengl) {
+    Renderer* renderer = &opengl->base;
+    
+    renderer_finish_active_request(renderer);
+    
+    glDisable(GL_SCISSOR_TEST);
+    glClearColor(0, 0, 1, 1);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glEnable(GL_SCISSOR_TEST);
+    glViewport(0, 0, (GLsizei)opengl->render_width,
+               (GLsizei)opengl->render_height);
+    glScissor(0, 0, (GLsizei)opengl->render_width,
+              (GLsizei)opengl->render_height);
+    
+    b32 world_enabled = false;
+    b32 background_enable = false;
+    Vector4 active_clip = {0, 0, opengl->render_width, opengl->render_height};
+    
+    Matrix4x4 identity_matrix = identity();
+    
+    Matrix4x4 projection_3d = identity_matrix;
+    Matrix4x4 projection_2d = make_m4x4_orthographic(0, opengl->render_width,
+                                                     opengl->render_height,
+                                                     0, -100.0f, 100.0f);
+    
+    Matrix4x4 view = identity_matrix;
+    Matrix4x4 view_3d = identity_matrix;
+    Matrix4x4 projection = identity_matrix;
+    Matrix4x4 view_projection = identity_matrix;
+    Matrix4x4 inverse_view_projection;
+    Matrix4x4 shadow_view;
+    Matrix4x4 shadow_projection;
+    Matrix4x4 shadow_view_projection;
+    
+    for (umm request_index = 0;
+         request_index < renderer->request_count;
+         ++request_index) {
+        Render_Request* request = &renderer->requests[request_index];
+        
+        b32 additive = (request->flags & Render_Flags::ADDITIVE_BLEND);
+        
+        if (request->flags & Render_Flags::RENDER_2D) {
+            view = identity_matrix;
+            view_projection = projection = projection_2d;
+            
+            opengl_bind_fbo(opengl, &opengl->main_2d_fbo);
+            
+            glDisable(GL_DEPTH_TEST);
+            glDepthMask(GL_FALSE);
+        } else {
+            view = view_3d;
+            projection = projection_3d;
+            
+            opengl_bind_fbo(opengl, &opengl->world_fbo);
+            
+            glEnable(GL_DEPTH_TEST);
+            glDepthMask((request->flags & Render_Flags::NO_DEPTH_WRITE) ?
+                        GL_FALSE : GL_TRUE);
+            
+        }
+        
+        switch (request->kind) {
+            case Render_Request_Kind::FILLED_RECT: {
+                // NOTE(yuval): Data Upload
+                glBindBuffer(GL_ARRAY_BUFFER,
+                             opengl->filled_rect_instance_buffer);
+                glBufferSubData(GL_ARRAY_BUFFER, 0, request->data_size,
+                                (GLubyte*)renderer->filled_rect_instance_data +
+                                request->data_offset);
+                glBindBuffer(GL_ARRAY_BUFFER, 0);
+                
+                // NOTE(yuval): Filled Rect Rendering
+                use_program_begin(&opengl->filled_rect_program.common);
+                glBindVertexArray(opengl->filled_rect_vao);
+                
+                glUniformMatrix4fv(
+                    opengl->filled_rect_program.view_projection,
+                    1, GL_FALSE,
+                    &view_projection.e[0][0]);
+                
+                GLint first = 0;
+                GLsizei count = 4;
+                GLsizei instance_count = (GLsizei)
+                    (request->data_size / sizeof(Renderer_Filled_Rect));
+                glDrawArraysInstanced(GL_TRIANGLE_STRIP, first,
+                                      count, instance_count);
+                
+                use_program_end(&opengl->filled_rect_program.common);
+                
+                glBindVertexArray(0);
+            } break;
+        }
     }
     
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter_kind);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter_kind);
+#if 1
+    // NOTE(yuval): Render world to main framebuffer
+    opengl_bind_fbo(opengl, &opengl->main_fbo);
+    glDepthMask(GL_TRUE);
+    
+    use_program_begin(&opengl->world_program.common);
+    glBindVertexArray(opengl->all_purpose_vao);
+    
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, opengl->world_fbo.color_textures[0]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     
-    return result;
-}
-
-internal void
-free_framebuffer(Opengl_Framebuffer* framebuffer) {
-    if (framebuffer->framebuffer_handle) {
-        glDeleteFramebuffers(1, &framebuffer->framebuffer_handle);
-        framebuffer->framebuffer_handle = 0;
-    }
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, opengl->world_fbo.color_textures[1]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     
-    for (u32 color_index = 0;
-         color_index < ARRAY_COUNT(framebuffer->color_handle);
-         ++color_index) {
-        if (framebuffer->color_handle[color_index]) {
-            glDeleteTextures(1, &framebuffer->color_handle[color_index]);
-            framebuffer->color_handle[color_index] = 0;
-        }
-    }
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, opengl->world_fbo.depth_texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     
-    if (framebuffer->depth_handle) {
-        glDeleteTextures(1, &framebuffer->depth_handle);
-        framebuffer->depth_handle = 0;
-    }
-}
-
-internal Opengl_Framebuffer
-create_framebuffer(Opengl* opengl, u32 width, u32 height,
-                   u32 flags, u32 color_buffer_count) {
-    ASSERT(glGetError() == GL_NO_ERROR);
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, opengl->shadow_map_fbo.depth_texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE,
+                    GL_COMPARE_REF_TO_TEXTURE);
     
-    Opengl_Framebuffer result = {};
+    glUniformMatrix4fv(opengl->world_program.inverse_view_projection,
+                       1, GL_FALSE,
+                       &inverse_view_projection.e[0][0]);
     
-    b32 multisampled = flags & Opengl_Framebuffer_Flags::MULTISAMPLED;
-    b32 filtered = flags & Opengl_Framebuffer_Flags::FILTERED;
-    b32 has_depth = flags & Opengl_Framebuffer_Flags::DEPTH;
-    b32 is_float = flags & Opengl_Framebuffer_Flags::FLOAT;
+    glUniformMatrix4fv(opengl->world_program.shadow_view_projection,
+                       1, GL_FALSE,
+                       &shadow_view_projection.e[0][0]);
     
-    glGenFramebuffers(1, &result.framebuffer_handle);
-    glBindFramebuffer(GL_FRAMEBUFFER, result.framebuffer_handle);
+    glUniform1i(opengl->world_program.albedo_texture, 0);
+    glUniform1i(opengl->world_program.normal_texture, 1);
+    glUniform1i(opengl->world_program.depth_texture, 2);
+    glUniform1i(opengl->world_program.shadow_map_texture, 3);
     
-    GLuint slot = multisampled ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
-    GLint filter_kind = filtered ? GL_LINEAR : GL_NEAREST;
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     
-    ASSERT(color_buffer_count <=
-           ARRAY_COUNT(opengl_all_color_attachments));
-    ASSERT(color_buffer_count <=
-           ARRAY_COUNT(result.color_handle));
+    glBindVertexArray(0);
+    use_program_end(&opengl->world_program.common);
+#endif // #if 1
     
-    for (u32 color_index = 0;
-         color_index < color_buffer_count;
-         ++color_index) {
-        result.color_handle[color_index] =
-            framebuffer_tex_image(opengl, slot, width, height,
-                                  filter_kind, (color_index == 0) ? opengl->default_framebuffer_texture_format : GL_RGBA8);
-        glFramebufferTexture2D(GL_FRAMEBUFFER,
-                               GL_COLOR_ATTACHMENT0 + color_index,
-                               slot, result.color_handle[color_index],
-                               0);
-    }
-    
-    glDrawBuffers(color_buffer_count, opengl_all_color_attachments);
-    
-    if (has_depth) {
-        result.depth_handle =
-            framebuffer_tex_image(opengl, slot, width, height,
-                                  filter_kind, OPENGL_DEPTH_COMPONENT_KIND);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-                               slot, result.depth_handle, 0);
-    }
-    
-    GLenum framebuffer_status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    ASSERT(framebuffer_status == GL_FRAMEBUFFER_COMPLETE);
-    
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glBindTexture(slot, 0);
-    
-    return result;
-}
-
-internal void
-opengl_change_to_settings(Opengl* opengl, Render_Settings* settings) {
-    //free_framebuffer(&opengl->resolve_famebuffer);
-    
-    /*for (u32 depth_peel_index = 0;
-    depth_peel_index < opengl->depth_peel_count;
-    ++depth_peel_index) {
-    free_framebuffer(&opengl->depth_peel_buffer[depth_peel_index]);
-    free_framebuffer(&opengl->depth_peel_resolve_buffer[depth_peel_index]);
-    }*/
-    
-    free_framebuffer(&opengl->resolve_framebuffer);
-    
-    
-    free_program(&opengl->z_bias_no_depth_peel.common);
-    free_program(&opengl->z_bias_depth_peel.common);
-    free_program(&opengl->peel_composite);
-    free_program(&opengl->final_stretch);
-    
-    opengl->current_settings = *settings;
-    opengl->multisampling = settings->multisampling_hint;
-    opengl->depth_peel_count = settings->depth_peel_count_hint;
-    
-    u32 resolve_flags = 0;
-    if(!settings->pixelation_hint)
-    {
-        resolve_flags |= Opengl_Framebuffer_Flags::FILTERED;
-    }
-    
-    u32 render_width = settings->render_dim.width;
-    u32 render_height = settings->render_dim.height;
-    
-    compile_z_bias_program(opengl, &opengl->z_bias_no_depth_peel,
-                           false, true);
-    compile_z_bias_program(opengl, &opengl->z_bias_depth_peel,
-                           true, true);
-    compile_peel_composite(opengl, &opengl->peel_composite);
-    compile_final_stretch(opengl, &opengl->final_stretch);
-    
-    opengl->resolve_framebuffer =
-        create_framebuffer(opengl, render_width, render_height,
-                           resolve_flags, 1);
-}
-
-internal void
-opengl_init(Opengl* opengl, Opengl_Info info,
-            b32 framebuffer_supports_srgb) {
-    opengl->current_settings.depth_peel_count_hint = 4;
-    opengl->current_settings.multisampling_hint = true;
-    opengl->current_settings.pixelation_hint = false;
-    opengl->current_settings.multisampling_debug = false;
-    opengl->current_settings.request_vsync = true;
-    
-    opengl->shader_sim_tex_read_srgb = true;
-    opengl->shader_sim_tex_write_srgb = true;
-    
-    glGenTextures(1, &opengl->reserved_blit_texture);
-    
-    glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS,
-                  &opengl->max_color_attachments);
-    glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS,
-                  &opengl->max_samplers_per_shader);
-    
-    glGetIntegerv(GL_MAX_COLOR_TEXTURE_SAMPLES,
-                  &opengl->max_multisample_count);
-    if (opengl->max_multisample_count > 16) {
-        opengl->max_multisample_count = 16;
-    }
-    
-    opengl->default_sprite_texture_format = GL_RGBA8;
-    opengl->default_framebuffer_texture_format = GL_RGBA8;
-    
-    GLuint dummy_vertex_array;
-    glGenVertexArrays(1, &dummy_vertex_array);
-    glBindVertexArray(dummy_vertex_array);
-    
-    glGenBuffers(1, &opengl->vertex_buffer);
-    glGenBuffers(1, &opengl->index_buffer);
-    
-    glGenBuffers(1, &opengl->screen_fill_vertex_buffer);
-    glBindBuffer(GL_ARRAY_BUFFER, opengl->screen_fill_vertex_buffer);
-    Textured_Vertex vertices[] = {
-        {{-1.0f,  1.0f, 0.0f, 1.0f}, {}, {0.0f, 1.0f}, 0xFFFFFFFF},
-        {{-1.0f, -1.0f, 0.0f, 1.0f}, {}, {0.0f, 0.0f}, 0xFFFFFFFF},
-        {{ 1.0f,  1.0f, 0.0f, 1.0f}, {}, {1.0f, 1.0f}, 0xFFFFFFFF},
-        {{ 1.0f, -1.0f, 0.0f, 1.0f}, {}, {1.0f, 0.0f}, 0xFFFFFFFF}
-    };
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices),
-                 vertices, GL_STATIC_DRAW);
-    
-    for (u32 y = 0; y < 4; ++y) {
-        for (u32 x = 0; x < 4; ++x) {
-            opengl->white[y][x] = 0xFFFFFFFF;
-        }
-    }
-    
-    glGenTextures(1, &opengl->texture_array);
-    glBindTexture(GL_TEXTURE_2D_ARRAY, opengl->texture_array);
-    
-    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0,
-                 opengl->default_sprite_texture_format,
-                 TEXTURE_ARRAY_DIM, TEXTURE_ARRAY_DIM,
-                 opengl->max_texture_count, 0,
-                 GL_BGRA_EXT, GL_UNSIGNED_BYTE, 0);
-    
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S,
-                    GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T,
-                    GL_CLAMP_TO_EDGE);
-    
-    glGenTextures(opengl->max_special_texture_count,
-                  opengl->special_texture_handles);
-    for (u32 handle_index = 0;
-         handle_index < opengl->max_special_texture_count;
-         ++handle_index) {
-        GLuint handle = opengl->special_texture_handles[handle_index];
-        glBindTexture(GL_TEXTURE_2D_ARRAY, handle);
-        
-        
-        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S,
-                        GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T,
-                        GL_CLAMP_TO_EDGE);
-    }
-    
-    glBindTexture(GL_TEXTURE_2D, 0);
-}
-
-internal Render_Commands*
-opengl_begin_frame(Opengl* opengl,
-                   u32 window_width, u32 window_height,
-                   Rectangle2i draw_region) {
-    Render_Commands* commands = &opengl->render_commands;
-    
-    commands->settings = opengl->current_settings;
-    
-    commands->os_window_dim.width = window_width;
-    commands->os_window_dim.height = window_height;
-    commands->os_draw_region = draw_region;
-    
-    commands->max_push_buffer_size = sizeof(opengl->push_buffer_memory);
-    commands->push_buffer_base = opengl->push_buffer_memory;
-    commands->push_buffer_data_at = opengl->push_buffer_memory;
-    
-    commands->max_vertex_count = opengl->max_vertex_count;
-    commands->vertex_count = 0;
-    commands->vertex_array = opengl->vertex_array;
-    
-    commands->max_index_count = opengl->max_index_count;
-    commands->index_count = 0;
-    commands->index_array = opengl->index_array;
-    
-    commands->max_quad_texture_count = opengl->max_quad_texture_count;
-    commands->quad_texture_count = 0;
-    commands->quad_textures = opengl->bitmap_array;
-    
-    return commands;
-}
-
-internal void
-opengl_end_frame(Opengl* opengl,
-                 Render_Commands* commands) {
-    Rectangle2i draw_region = commands->os_draw_region;
-    u32 window_width = commands->os_window_dim.width;
-    u32 window_height = commands->os_window_dim.height;
-    
+#if 1
+    // NOTE(yuval): Do FXAA pass on main framebuffer to default framebuffer
+    opengl_bind_fbo(opengl, 0);
     glDepthMask(GL_TRUE);
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glDepthFunc(GL_LEQUAL);
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    glFrontFace(GL_CCW);
-    glEnable(GL_MULTISAMPLE);
     
-    glEnable(GL_SCISSOR_TEST);
-    glDisable(GL_BLEND);
-    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    use_program_begin(&opengl->fxaa_program.common);
+    glBindVertexArray(opengl->all_purpose_vao);
     
-    glBindBuffer(GL_ARRAY_BUFFER, opengl->vertex_buffer);
-    glBufferData(GL_ARRAY_BUFFER,
-                 commands->vertex_count * sizeof(Textured_Vertex),
-                 commands->vertex_array,
-                 GL_STREAM_DRAW);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, opengl->main_fbo.color_textures[0]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glUniform1i(opengl->fxaa_program.color_tex, 0);
+    glUniform2f(opengl->fxaa_program.color_tex_resolution,
+                opengl->render_width, opengl->render_height);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, opengl->index_buffer);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                 commands->index_count * sizeof(u16),
-                 commands->index_array,
-                 GL_STREAM_DRAW);
+    glBindVertexArray(0);
+    use_program_end(&opengl->fxaa_program.common);
+#endif // #if 1
     
-    if (!settings_match(&commands->settings, &opengl->current_settings)) {
-        opengl_change_to_settings(opengl, &commands->settings);
-    }
+#if 1
+    // NOTE(yuval): Do FXAA pass on main 2d framebuffer to default framebuffer
+    opengl_bind_fbo(opengl, 0);
+    glDepthMask(GL_TRUE);
     
-    opengl_manage_textures(opengl, &opengl->header.texture_queue);
+    use_program_begin(&opengl->fxaa_program.common);
+    glBindVertexArray(opengl->all_purpose_vao);
     
-    b32 use_render_targets = (glBindFramebuffer != 0);
-    ASSERT(use_render_targets);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, opengl->main_2d_fbo.color_textures[0]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glUniform1i(opengl->fxaa_program.color_tex, 0);
+    glUniform2f(opengl->fxaa_program.color_tex_resolution,
+                opengl->render_width, opengl->render_height);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     
-    Render_Settings* settings = &commands->settings;
-    u32 render_width = settings->render_dim.width;
-    u32 render_height = settings->render_dim.height;
+    glBindVertexArray(0);
+    use_program_end(&opengl->fxaa_program.common);
+#endif // #if 1
     
-    glClearDepth(1.0f);
-    
-    ASSERT(opengl->depth_peel_count > 0);
-    u32 max_render_target_index = opengl->depth_peel_count - 1;
-    u32 on_peel_index = 0;
-    u8* peel_header_restore = 0;
-    u32 current_render_target_index = 0xFFFFFFFF;
-    Matrix4x4 proj = identity();
-    for (u8* header_at = commands->push_buffer_base;
-         header_at < commands->push_buffer_data_at;) {
-        Render_Group_Entry_Header* header =
-            (Render_Group_Entry_Header*)header_at;
-        header_at += sizeof(Render_Group_Entry_Header);
-        void* data = (u8*)header + sizeof(*header);
-        
-        switch (header->kind) {
-            /*
-            case Render_Group_Entry_Kind::FULL_CLEAR: {
-            
-            } break;
-            
-            case Render_Group_Entry_Kind::BEGIN_PEELS: {
-            
-            } break;
-            
-            case Render_Group_Entry_Kind::END_PEELS: {
-            
-            } break;
-            
-            case Render_Group_Entry_Kind::DEPTH_CLEAR: {
-            
-            } break;
-            */
-            case Render_Group_Entry_Kind::TEXTURED_QUADS: {
-                glBindBuffer(GL_ARRAY_BUFFER, opengl->vertex_buffer);
-                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
-                             opengl->index_buffer);
-                
-                header_at += sizeof(Render_Entry_Textured_Quads);
-                Render_Entry_Textured_Quads* entry =
-                    (Render_Entry_Textured_Quads*)data;
-                
-                b32 peeling = (on_peel_index > 0);
-                
-                Render_Setup* setup = &entry->setup;
-                
-                Rectangle2 clip_rect = setup->clip_rect;
-                s32 clip_min_x = s32_binormal_lerp(0, clip_rect.min.x,
-                                                   render_width);
-                s32 clip_min_y = s32_binormal_lerp(0, clip_rect.min.y,
-                                                   render_height);
-                s32 clip_max_x = s32_binormal_lerp(0, clip_rect.max.x,
-                                                   render_width);
-                s32 clip_max_y = s32_binormal_lerp(0, clip_rect.max.y,
-                                                   render_height);
-                glScissor(clip_min_x, clip_min_y,
-                          clip_max_x - clip_min_x,
-                          clip_max_y - clip_min_y);
-                
-                Z_Bias_Program* prog = &opengl->z_bias_no_depth_peel;
-                f32 alpha_threshold = 0.0f;
-                
-                /*
-                if (peeling) {
-                Opengl_Framebuffer* peel_buffer =
-                get_depth_peel_read_buffer(opengl,
-                on_peel_index - 1);
-                prog = &opengl->z_bias_depth_peel;
-                glActiveTexture(GL_TEXTURE1);
-                glBindTexture(GL_TEXTURE_2D,
-                peel_buffer->depth_handle);
-                glActiveTexture(GL_TEXTURE0);
-                
-                if (on_depth_peel == max_render_target_index) {
-                alpha_threshold = 0.9f;
-                }
-                }
-                */
-                
-                /*
-                glActiveTexture(GL_TEXTURE2);
-                glBindTexture(GL_TEXTURE_1D, opengl->light_data_0);
-                glActiveTexture(GL_TEXTURE3);
-                glBindTexture(GL_TEXTURE_1D, opengl->light_data_1);
-                glActiveTexture(GL_TEXTURE0);
-                */
-                
-                use_program_begin(prog, setup, alpha_threshold);
-                
-                if (entry->quad_textures) {
-                    // NOTE(yuval): This is the multiple-dispatch slow path, for
-                    // arbitrary sized textures
-                    u32 index_index = entry->index_array_offset;
-                    
-                    for (u32 quad_index = 0;
-                         quad_index < entry->quad_count;
-                         ++quad_index) {
-                        Renderer_Texture texture =
-                            entry->quad_textures[quad_index];
-                        GLuint texture_handle =
-                            get_special_texture_handle_for(opengl, texture);
-                        glBindTexture(GL_TEXTURE_2D_ARRAY, texture_handle);
-                        glDrawElementsBaseVertex(
-                            GL_TRIANGLES, 6, GL_UNSIGNED_SHORT,
-                            (GLvoid*)(index_index * sizeof(u16)),
-                            entry->vertex_array_offset);
-                        index_index += (6 * quad_index);
-                    }
-                } else {
-                    // NOTE(yuval): This is the single-dispatch fast path, for texture arrays
-                    glBindTexture(GL_TEXTURE_2D_ARRAY,
-                                  opengl->texture_array);
-                    glDrawElementsBaseVertex(
-                        GL_TRIANGLES, 6 * entry->quad_count,
-                        GL_UNSIGNED_SHORT,
-                        (GLvoid*)(entry->index_array_offset * sizeof(u16)),
-                        entry->vertex_array_offset);
-                }
-                
-                glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
-                use_program_end(&prog->common);
-                
-                if (peeling) {
-                    glActiveTexture(GL_TEXTURE1);
-                    glBindTexture(GL_TEXTURE_2D, 0);
-                    glActiveTexture(GL_TEXTURE0);
-                }
-            } break;
-            
-            /*case Render_Group_Entry_Kind::LIGHTING_TRANSFER: {
-            
-            } break;
-            */
-            // TODO(yuval): Diagnose if default case is hit
+    GLenum error = glGetError();
+    if (error) {
+        if (error & GL_INVALID_ENUM) {
+            ASSERT(!"Invalid Enum");
         }
+        
+        if (error & GL_INVALID_VALUE) {
+            ASSERT(!"Invalid Value");
+        }
+        
+        if (error & GL_INVALID_OPERATION) {
+            ASSERT(!"Invalid Operation");
+        }
+        
+        if (error & GL_STACK_UNDERFLOW) {
+            ASSERT(!"Stack Underflow");
+        }
+        
+        if (error & GL_STACK_OVERFLOW) {
+            ASSERT(!"Stack Underflow");
+        }
+        
+        ASSERT(!"Out of memory");
     }
-    
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_BLEND);
-    
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER,
-                      opengl->resolve_framebuffer.framebuffer_handle);
-    glViewport(0, 0, render_width, render_height);
-    glScissor(0, 0, render_width, render_height);
-    glBindBuffer(GL_ARRAY_BUFFER, opengl->screen_fill_vertex_buffer);
-    
-    /*
-    use_program_begin(&opengl->peel_composite);
-    u32 texture_bind_index = GL_TEXTURE0;
-    for (u32 peel_index = 0;
-    peel_index < max_render_target_index;
-    ++peel_index) {
-    Opengl_Framebuffer* peel_buffer =
-    get_depth_peel_read_buffer(opengl, peel_index);
-    glActiveTexture(texture_bind_index++);
-    glBindTexture(GL_TEXTURE_2D,
-    peel_buffer->color_handle[Opengl_Color_Handle_Kind::SURFACE_REFLECT]);
-    }
-    
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    glActiveTexture(GL_TEXTURE0);
-    use_program_end(&opengl->peel_composite);
-    */
-    
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-    
-    glViewport(0, 0, window_width, window_height);
-    glScissor(0, 0, window_width, window_height);
-    glClearColor(0, 0, 0, 0);
-    glClear(GL_COLOR_BUFFER_BIT);
-    
-    glViewport(draw_region.min_x, draw_region.min_y,
-               get_width(draw_region), get_height(draw_region));
-    glScissor(draw_region.min_x, draw_region.min_y,
-              get_width(draw_region), get_height(draw_region));
-    
-    use_program_begin(&opengl->final_stretch);
-    glBindTexture(GL_TEXTURE_2D,
-                  opengl->resolve_framebuffer.color_handle[0]);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glActiveTexture(GL_TEXTURE0);
-    use_program_end(&opengl->final_stretch);
 }
