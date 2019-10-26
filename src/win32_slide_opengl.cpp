@@ -16,6 +16,7 @@
 // in the opengl renderer
 #define ASSERT(expression) if(!(expression)) {*(volatile int *)0 = 0;}
 
+#include "slide_platform.h"
 #include "slide_types.h"
 #include "slide_intrinsics.h"
 #include "slide_math.h"
@@ -213,13 +214,9 @@ win32_set_pixel_format(Opengl* opengl, HDC window_dc) {
             WGL_SUPPORT_OPENGL_ARB, GL_TRUE, // 2
             WGL_DOUBLE_BUFFER_ARB, GL_TRUE, // 3
             WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB, // 4
-            WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB, GL_TRUE, // 5
+            0, GL_FALSE, // 5
             0,
         };
-        
-        if (!opengl->supports_srgb_framebuffer) {
-            int_attrib_list[10] = 0;
-        }
         
         wglChoosePixelFormatARB(window_dc, int_attrib_list, 0, 1,
                                 &suggested_pixel_format_index,
@@ -286,34 +283,6 @@ win32_load_wgl_extensions(Opengl* opengl) {
             wglGetExtensionsStringEXT =
                 (Wgl_Get_Extensions_String_Ext*)wglGetProcAddress("wglGetExtensionsStringEXT");
             
-            if (wglGetExtensionsStringEXT) {
-                char* extensions = (char*)wglGetExtensionsStringEXT();
-                char* at = extensions;
-                
-                while (*at) {
-                    while (is_whitespace(*at)) {
-                        ++at;
-                    }
-                    
-                    char* end = at;
-                    
-                    while (*end && (!is_whitespace(*end))) {
-                        ++end;
-                    }
-                    
-                    umm count = end - at;
-                    
-                    if (strings_match(at, count,
-                                      "WGL_EXT_framebuffer_sRGB")) {
-                        opengl->supports_srgb_framebuffer = true;
-                    } else if (strings_match(at, count, "WGL_ARB_framebuffer_sRGB")) {
-                        opengl->supports_srgb_framebuffer = true;
-                    }
-                    
-                    at = end;
-                }
-            }
-            
             wglMakeCurrent(0, 0);
         }
         
@@ -334,9 +303,7 @@ win32_renderer_alloc(umm size) {
 
 RENDERER_BEGIN_FRAME(win32_opengl_begin_frame) {
     Render_Commands* result =
-        opengl_begin_frame((Opengl*)renderer,
-                           window_width, window_height,
-                           draw_region);
+        opengl_begin_frame((Opengl*)renderer, render_dim);
     
     return result;
 }
@@ -346,40 +313,34 @@ RENDERER_END_FRAME(win32_opengl_end_frame) {
     SwapBuffers(wglGetCurrentDC());
 }
 
+RENDERER_ALLOCATE_TEXTURE(win32_opengl_allocate_texture) {
+    Renderer_Texture result =
+        opengl_allocate_texture((Opengl*)renderer, width, height, data);
+    
+    return result;
+}
+
 internal Opengl*
 win32_init_opengl(HDC window_dc, Platform_Renderer_Limits* limits) {
     Opengl* opengl = (Opengl*)win32_renderer_alloc(sizeof(Opengl));
     
-    init_texture_queue(&opengl->header.texture_queue,
-                       limits->texture_transfer_buffer_size,
-                       win32_renderer_alloc(limits->texture_transfer_buffer_size));
-    
     opengl->header.begin_frame = win32_opengl_begin_frame;
     opengl->header.end_frame = win32_opengl_end_frame;
+    opengl->header.allocate_texture = win32_opengl_allocate_texture;
     
     win32_load_wgl_extensions(opengl);
     win32_set_pixel_format(opengl, window_dc);
     
     u32 max_vertex_count = limits->max_quad_count_per_frame * 4;
-    u32 max_index_count = limits->max_quad_count_per_frame * 6;
     opengl->max_vertex_count = max_vertex_count;
-    opengl->max_index_count = max_index_count;
-    
-    opengl->max_texture_count = limits->max_texture_count;
-    opengl->max_special_texture_count = limits->max_special_texture_count;
     
     opengl->max_quad_texture_count = limits->max_quad_count_per_frame;
     
     opengl->vertex_array = (Textured_Vertex*)
         win32_renderer_alloc(max_vertex_count * sizeof(Textured_Vertex));
-    opengl->index_array = (u16*)
-        win32_renderer_alloc(max_index_count * sizeof(u16));
     opengl->bitmap_array = (Renderer_Texture*)
         win32_renderer_alloc(opengl->max_quad_texture_count *
                              sizeof(Renderer_Texture));
-    opengl->special_texture_handles = (GLuint*)
-        win32_renderer_alloc(limits->max_special_texture_count *
-                             sizeof(GLuint));
     
     b32 modern_context = true;
     HGLRC opengl_rc = 0;
@@ -453,7 +414,7 @@ win32_init_opengl(HDC window_dc, Platform_Renderer_Limits* limits) {
             wglSwapIntervalEXT(1);
         }
         
-        opengl_init(opengl, info, opengl->supports_srgb_framebuffer);
+        opengl_init(opengl, info);
     }
     
     return opengl;

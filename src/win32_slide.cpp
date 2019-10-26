@@ -10,6 +10,103 @@ internal PLATFORM_DISPLAY_MESSAGE_BOX(win32_display_message_box) {
     MessageBoxA(0, message, title, MB_OK);
 }
 
+internal PLATFORM_FREE_FILE_MEMORY(win32_free_file_memory) {
+    if (memory) {
+        VirtualFree(memory, 0, MEM_RELEASE);
+    }
+}
+
+internal PLATFORM_READ_ENTIRE_FILE(win32_read_entire_file) {
+    Read_File_Result result = {};
+    
+    HANDLE file_handle = CreateFileA(filename, GENERIC_READ,
+                                     FILE_SHARE_READ, 0, OPEN_EXISTING,
+                                     0, 0);
+    
+    if (file_handle != INVALID_HANDLE_VALUE) {
+        LARGE_INTEGER file_size;
+        if (GetFileSizeEx(file_handle, &file_size)) {
+            u32 file_size_32 = safe_truncate_to_u32(file_size.QuadPart);
+            result.contents = VirtualAlloc(0, file_size_32,
+                                           MEM_RESERVE | MEM_COMMIT,
+                                           PAGE_READWRITE);
+            
+            if (result.contents) {
+                DWORD bytes_read;
+                if (ReadFile(file_handle, result.contents,
+                             file_size_32, &bytes_read, 0) &&
+                    (bytes_read == file_size_32)) {
+                    result.contents_size = file_size_32;
+                } else {
+                    win32_free_file_memory(result.contents);
+                    result.contents = 0;
+                }
+            }
+        }
+        
+        CloseHandle(file_handle);
+    }
+    
+    return result;
+}
+
+internal PLATFORM_WRITE_ENTIRE_FILE(win32_write_entire_file) {
+    b32 result = false;
+    
+    HANDLE file_handle = CreateFileA(filename, GENERIC_WRITE,
+                                     0, 0, CREATE_ALWAYS,
+                                     0, 0);
+    
+    if (file_handle != INVALID_HANDLE_VALUE) {
+        DWORD bytes_written;
+        if (WriteFile(file_handle, memory, memory_size,
+                      &bytes_written, 0)) {
+            result = (bytes_written == memory_size);
+        }
+        
+        CloseHandle(file_handle);
+    }
+    
+    return result;
+}
+
+internal Renderer_Font
+win32_load_font(Platform_Renderer* renderer, const char* path) {
+    Renderer_Font result = {};
+    
+    // TODO(yuval): Require Only The Font's Name Instead Of Requiring The Full Path
+    Read_File_Result font_file = win32_read_entire_file(path);
+    
+    u8* at = (u8*)font_file.contents;
+    u8* last_at = at;
+    u32 character = 0;
+    while (*at) {
+        while (!is_spacing(*at)) {
+            ++at;
+        }
+        
+        String width_str = make_string(last_at, at - last_at);
+        u32 width = to_u32(width_str);
+        
+        last_at = ++at;
+        
+        while (!is_spacing(*at)) {
+            ++at;
+        }
+        
+        String height_str = make_string(last_at, at - last_at);
+        u32 height = to_u32(height_str);
+        
+        result.characters[character++] =
+            renderer->allocate_texture(renderer, width, height, ++at);
+        
+        at += width * height * 4;
+        last_at = at;
+    }
+    
+    return result;
+}
+
 internal Vector2u
 win32_get_window_dimensions(HWND window) {
     RECT client_rect;
@@ -102,41 +199,40 @@ WinMain(HINSTANCE instance,
                                       instance,
                                       0);
         
-        
         if (window) {
-            App app;
+            Application app = {};
+            
+            // NOTE(yuval): Platform API Functions
             app.platform_api.display_message_box =
                 win32_display_message_box;
-            
-            HDC renderer_dc = GetDC(window);
+            app.platform_api.free_file_memory = win32_free_file_memory;
+            app.platform_api.read_entire_file = win32_read_entire_file;
+            app.platform_api.write_entire_file = win32_write_entire_file;
             
             Platform_Renderer_Limits limits;
             limits.max_quad_count_per_frame = (1 << 18);
-            limits.max_texture_count = MAX_NORMAL_TEXTURE_COUNT;
-            limits.max_special_texture_count = MAX_SPECIAL_TEXTURE_COUNT;
-            limits.texture_transfer_buffer_size = TEXTURE_TRANSFER_BUFFER_SIZE;
             
             Platform_Renderer* renderer =
                 win32_init_default_renderer(window, &limits);
             
+            Renderer_Font default_font = win32_load_font(
+                renderer, "data/generated_assets/fonts/KarminaBold.sf");
+            
             global_running = true;
             while (global_running) {
-                Vector2u render_dim = {
+                /* Vector2u render_dim = {
                     1280, 720,
                     
                     // 1920, 1080
-                };
+                };*/
                 
+                // TODO(yuval): Get rid of all of this!
                 Vector2u dimensions = win32_get_window_dimensions(window);
-                Rectangle2i draw_region = aspect_ratio_fit(
-                    render_dim.width, render_dim.height,
-                    dimensions.width, dimensions.height);
                 
                 Render_Commands* frame = renderer->begin_frame(
-                    renderer,
-                    dimensions.width, dimensions.height,
-                    draw_region);
-                frame->settings.render_dim = render_dim;
+                    renderer, dimensions);
+                
+                frame->default_font = &default_font;
                 
                 MSG message;
                 while (PeekMessageA(&message, 0, 0, 0, PM_REMOVE)) {

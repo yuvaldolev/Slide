@@ -22,5 +22,11 @@ round_f32_to_u32(f32 value) {
     return result;
 }
 
+inline u32
+safe_truncate_to_u32(u64 value) {
+    ASSERT(value <= 0xFFFFFFFF);
+    return (u32)value;
+}
+
 #define SLIDE_INTRINSICS_H
 #endif // #if !defined(SLIDE_INTRINSICS_H)

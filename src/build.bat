@@ -13,6 +13,9 @@ REM Compilation Setup
 IF NOT EXIST ..\.build mkdir ..\.build & attrib +h ..\.build /s /d
 pushd ..\.build
 
+REM Asset Builder Compilation
+cl %compiler_flags% ..\src\slide_asset_builder.cpp -Fe..\run_tree\slide_asset_builder
+
 REM Opengl Renderer Compilation
 cl  %compiler_flags% %win32_compiler_flags% ..\src\win32_slide_opengl.cpp -Fe..\run_tree\win32_slide_opengl -LD /link -incremental:no -opt:ref -EXPORT:win32_load_renderer gdi32.lib opengl32.lib user32.lib
 

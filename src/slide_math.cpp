@@ -25,6 +25,29 @@ s32_binormal_lerp(s32 a, f32 t_binormal, s32 b) {
     return result;
 }
 
+inline f32
+safe_ratio_n(f32 numerator, f32 divisor, f32 n) {
+    f32 result = n;
+    
+    if (divisor != 0.0f) {
+        result = numerator / divisor;
+    }
+    
+    return result;
+}
+
+inline f32
+safe_ratio_0(f32 numerator, f32 divisor) {
+    f32 result = safe_ratio_n(numerator, divisor, 0.0f);
+    return result;
+}
+
+inline f32
+safe_ratio_1(f32 numerator, f32 divisor) {
+    f32 result = safe_ratio_n(numerator, divisor, 1.0f);
+    return result;
+}
+
 //
 // NOTE(yuval): Vector2 Functions
 //
@@ -110,6 +133,18 @@ make_v2u(u32 x, u32 y) {
 inline Vector3
 make_v3(f32 x, f32 y, f32 z) {
     Vector3 result = {x, y, z};
+    return result;
+}
+
+inline Vector3
+make_v3(s32 x, s32 y, s32 z) {
+    Vector3 result = {(f32)x, (f32)y, (f32)z};
+    return result;
+}
+
+inline Vector3
+make_v3(u32 x, u32 y, u32 z) {
+    Vector3 result = {(f32)x, (f32)y, (f32)z};
     return result;
 }
 
@@ -203,6 +238,18 @@ make_v4(f32 x, f32 y, f32 z, f32 w) {
 }
 
 inline Vector4
+make_v4(s32 x, s32 y, s32 z, s32 w) {
+    Vector4 result = {(f32)x, (f32)y, (f32)z, (f32)w};
+    return result;
+}
+
+inline Vector4
+make_v4(u32 x, u32 y, u32 z, u32 w) {
+    Vector4 result = {(f32)x, (f32)y, (f32)z, (f32)w};
+    return result;
+}
+
+inline Vector4
 make_v4(Vector3 xyz, f32 w) {
     Vector4 result = {xyz.x, xyz.y, xyz.z, w};
     return result;
@@ -270,6 +317,18 @@ get_center(Rectangle2 rect) {
 // NOTE(yuval): Rectangle2i Functions
 //
 
+// NOTE(yuval): Initialization
+inline Rectangle2i
+rect_min_dim(s32 min_x, s32 min_y, s32 dim_x, s32 dim_y) {
+    Rectangle2i result;
+    result.min_x = min_x;
+    result.min_y = min_y;
+    result.max_x = min_x + dim_x;
+    result.max_y = min_y + dim_y;
+    
+    return result;
+}
+
 // NOTE(yuval): Operations
 inline s32
 get_width(Rectangle2i rect) {
@@ -280,6 +339,17 @@ get_width(Rectangle2i rect) {
 inline s32
 get_height(Rectangle2i rect) {
     s32 result = (rect.max_y - rect.min_y);
+    return result;
+}
+
+inline Rectangle2i
+offset(Rectangle2i rect, s32 x, s32 y) {
+    Rectangle2i result = rect;
+    result.min_x += x;
+    result.max_x += x;
+    result.min_y += y;
+    result.max_y += y;
+    
     return result;
 }
 
@@ -298,6 +368,22 @@ identity() {
             {0, 0, 0, 1}
         }
     };
+    
+    return result;
+}
+
+internal Matrix4x4
+orthographic_projection(f32 left, f32 right, f32 bottom, f32 top, f32 near_depth, f32 far_depth)
+{
+    Matrix4x4 result = {};
+    
+    result.e[0][0] = 2.f / (right - left);
+    result.e[1][1] = 2.f / (top - bottom);
+    result.e[2][2] = -2.f / (far_depth - near_depth);
+    result.e[3][3] = 1.f;
+    result.e[3][0] = (left + right) / (left - right);
+    result.e[3][1] = (bottom + top) / (bottom - top);
+    result.e[3][2] = (far_depth + near_depth) / (near_depth - far_depth);
     
     return result;
 }

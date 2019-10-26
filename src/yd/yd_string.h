@@ -1339,7 +1339,7 @@ strings_match(const char* a, yd_umm a_count, const char* b) {
     if (b) {
         const char* at = b;
         
-        for (yd_umm index = 0; index < a_count; ++index) {
+        for (yd_umm index = 0; index < a_count; ++index, ++at) {
             if ((*at == 0) || (a[index] != *at)) {
                 return false;
             }
