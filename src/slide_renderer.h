@@ -1,12 +1,5 @@
 #if !defined(SLIDE_RENDERER_H)
 
-#define MAX_NORMAL_TEXTURE_COUNT 256
-#define MAX_SPECIAL_TEXTURE_COUNT 16
-#define TEXTURE_TRANSFER_BUFFER_SIZE (128*1024*1024)
-
-#define TEXTURE_ARRAY_DIM 512
-#define TEXTURE_SPECIAL_BIT 0x80000000
-
 struct Platform_Renderer;
 struct Render_Commands;
 struct Renderer_Texture;
@@ -20,6 +13,14 @@ typedef RENDERER_END_FRAME(Renderer_End_Frame);
 // TODO(yuval): Temporary! Use a texture queue instead
 #define RENDERER_ALLOCATE_TEXTURE(name) Renderer_Texture name(Platform_Renderer* renderer, u32 width, u32 height, void* data)
 typedef RENDERER_ALLOCATE_TEXTURE(Renderer_Allocate_Texture);
+
+namespace Draw_Mode {
+    enum Type {
+        LEFT_JUSTIFY,
+        CENTERED,
+        RIGHT_JUSTIFY
+    };
+}
 
 struct Renderer_Texture {
     void* texture_handle;

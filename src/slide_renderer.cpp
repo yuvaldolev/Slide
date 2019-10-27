@@ -219,7 +219,7 @@ push_texture(Render_Group* group, Renderer_Texture texture,
     push_texture(group, texture, make_v3(min_p, 0.0f), height, color);
 }
 
-internal Vector2
+inline Vector2
 get_character_dim(char character, Renderer_Font* font, f32 height) {
     Renderer_Texture char_tex = font->characters[character];
     f32 adjusted_height = height * ((f32)char_tex.dim.height /
@@ -232,17 +232,27 @@ get_character_dim(char character, Renderer_Font* font, f32 height) {
 internal void
 push_text(Render_Group* group, String text,
           Renderer_Font* font, Vector3 pos,
-          f32 height, Vector2 spacing, Vector4 color) {
-    f32 text_width = 0.0f;
-    for (umm char_index = 0;
-         char_index < text.count;
-         ++char_index) {
-        Vector2 char_dim = get_character_dim(text.data[char_index], font, height);
-        text_width += (char_dim.width + spacing.x);
-    }
-    
+          f32 height, Vector2 spacing, Vector4 color,
+          Draw_Mode::Type draw_mode = Draw_Mode::CENTERED) {
     Vector3 curr_min_p = pos;
-    curr_min_p.x -= (text_width / 2.0f);
+    
+    if (draw_mode != Draw_Mode::LEFT_JUSTIFY) {
+        f32 text_width = 0.0f;
+        
+        for (umm char_index = 0;
+             char_index < text.count;
+             ++char_index) {
+            Vector2 char_dim = get_character_dim(text.data[char_index], font, height);
+            text_width += (char_dim.width + spacing.x);
+        }
+        
+        f32 x_distance_to_min_p = text_width;
+        if (draw_mode == Draw_Mode::CENTERED) {
+            x_distance_to_min_p /= 2.0f;
+        }
+        
+        curr_min_p.x -= x_distance_to_min_p;
+    }
     
     for (umm char_index = 0;
          char_index < text.count;
@@ -272,25 +282,28 @@ push_text(Render_Group* group, String text,
 
 inline void
 push_text(Render_Group* group, String text,
-          Renderer_Font* font, Vector2 min_p,
-          f32 height, Vector2 spacing, Vector4 color) {
-    push_text(group, text, font, make_v3(min_p, 0.0f),
+          Renderer_Font* font, Vector2 pos,
+          f32 height, Vector2 spacing, Vector4 color,
+          Draw_Mode::Type draw_mode = Draw_Mode::CENTERED) {
+    push_text(group, text, font, make_v3(pos, 0.0f),
               height, spacing, color);
 }
 
 inline void
 push_text(Render_Group* group, const char* text,
-          Renderer_Font* font, Vector3 min_p,
-          f32 height, Vector2 spacing, Vector4 color) {
+          Renderer_Font* font, Vector3 pos,
+          f32 height, Vector2 spacing, Vector4 color,
+          Draw_Mode::Type draw_mode = Draw_Mode::CENTERED) {
     push_text(group, make_string_slowly(text), font,
-              min_p, height, spacing, color);
+              pos, height, spacing, color);
 }
 
 inline void
 push_text(Render_Group* group, const char* text,
-          Renderer_Font* font, Vector2 min_p,
-          f32 height, Vector2 spacing, Vector4 color) {
-    push_text(group, text, font, make_v3(min_p, 0.0f),
+          Renderer_Font* font, Vector2 pos,
+          f32 height, Vector2 spacing, Vector4 color,
+          Draw_Mode::Type draw_mode = Draw_Mode::CENTERED) {
+    push_text(group, text, font, make_v3(pos, 0.0f),
               height, spacing, color);
 }
 
