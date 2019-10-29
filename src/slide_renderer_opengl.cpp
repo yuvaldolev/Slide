@@ -138,6 +138,8 @@
 #define GL_MAX_COLOR_TEXTURE_SAMPLES      0x910E
 #define GL_MAX_DEPTH_TEXTURE_SAMPLES      0x910F
 
+#define GL_BGRA_EXT                       0x80E1
+
 #define OPENGL_DEPTH_COMPONENT_KIND GL_DEPTH_COMPONENT32F
 
 global GLenum opengl_all_color_attachments[] = {
@@ -175,7 +177,7 @@ global GLenum opengl_all_color_attachments[] = {
     GL_COLOR_ATTACHMENT31,
 };
 
-global char* global_shader_header_code = R"FOO(
+global const char* global_shader_header_code = R"FOO(
     #define m4x4 mat4
     #define f32 float
     #define v4 vec4
@@ -198,46 +200,6 @@ global char* global_shader_header_code = R"FOO(
     }
     
     )FOO";
-
-internal PLATFORM_FREE_FILE_MEMORY(opengl_free_file_memory) {
-    if (memory) {
-        VirtualFree(memory, 0, MEM_RELEASE);
-    }
-}
-
-internal PLATFORM_READ_ENTIRE_FILE(opengl_read_entire_file) {
-    Read_File_Result result = {};
-    
-    HANDLE file_handle = CreateFileA(filename, GENERIC_READ,
-                                     FILE_SHARE_READ, 0, OPEN_EXISTING,
-                                     0, 0);
-    
-    if (file_handle != INVALID_HANDLE_VALUE) {
-        LARGE_INTEGER file_size;
-        if (GetFileSizeEx(file_handle, &file_size)) {
-            u32 file_size_32 = safe_truncate_to_u32(file_size.QuadPart);
-            result.contents = VirtualAlloc(0, file_size_32,
-                                           MEM_RESERVE | MEM_COMMIT,
-                                           PAGE_READWRITE);
-            
-            if (result.contents) {
-                DWORD bytes_read;
-                if (ReadFile(file_handle, result.contents,
-                             file_size_32, &bytes_read, 0) &&
-                    (bytes_read == file_size_32)) {
-                    result.contents_size = file_size_32;
-                } else {
-                    opengl_free_file_memory(result.contents);
-                    result.contents = 0;
-                }
-            }
-        }
-        
-        CloseHandle(file_handle);
-    }
-    
-    return result;
-}
 
 GL_DEBUG_CALLBACK(opengl_debug_callback) {
     if (severity == GL_DEBUG_SEVERITY_HIGH) {
@@ -284,9 +246,9 @@ opengl_get_info(b32 is_modern_context) {
         }
     }
     
-    char* major_at = result.version;
-    char* minor_at = 0;
-    for (char* at = result.version; *at; ++at) {
+    const char* major_at = result.version;
+    const char* minor_at = 0;
+    for (const char* at = result.version; *at; ++at) {
         if (at[0] == '.') {
             minor_at = at + 1;
             break;
@@ -334,7 +296,7 @@ opengl_allocate_texture(Opengl* opengl, u32 width, u32 height, void* data) {
 }
 
 internal b32
-is_valid_array(GLuint index) {
+is_valid_array(GLint index) {
     b32 result = (index != -1);
     return result;
 }
@@ -343,9 +305,9 @@ internal void
 use_program_begin(Opengl_Program_Common* prog) {
     glUseProgram(prog->prog_handle);
     
-    GLuint p_array = prog->vert_p_id;
-    GLuint uv_array = prog->vert_uv_id;
-    GLuint c_array = prog->vert_color_id;
+    GLint p_array = prog->vert_p_id;
+    GLint uv_array = prog->vert_uv_id;
+    GLint c_array = prog->vert_color_id;
     
     if (is_valid_array(p_array)) {
         glEnableVertexAttribArray(p_array);
@@ -381,9 +343,9 @@ internal void
 use_program_end(Opengl_Program_Common* prog) {
     glUseProgram(0);
     
-    GLuint p_array = prog->vert_p_id;
-    GLuint uv_array = prog->vert_uv_id;
-    GLuint c_array = prog->vert_color_id;
+    GLint p_array = prog->vert_p_id;
+    GLint uv_array = prog->vert_uv_id;
+    GLint c_array = prog->vert_color_id;
     
     if (is_valid_array(p_array)) {
         glDisableVertexAttribArray(p_array);
@@ -405,17 +367,17 @@ free_program(Opengl_Program_Common* program) {
 }
 
 internal GLuint
-opengl_create_program(char* defines, char* header_code,
-                      char* vertex_code, char* fragment_code,
+opengl_create_program(const char* defines, const char* header_code,
+                      const char* vertex_code, const char* fragment_code,
                       Opengl_Program_Common* result) {
     GLuint vertex_shader_id = glCreateShader(GL_VERTEX_SHADER);
-    GLchar* vertex_shader_code[] = {defines, header_code, vertex_code};
+    const GLchar* vertex_shader_code[] = {defines, header_code, vertex_code};
     glShaderSource(vertex_shader_id, ARRAY_COUNT(vertex_shader_code),
                    vertex_shader_code, 0);
     glCompileShader(vertex_shader_id);
     
     GLuint fragment_shader_id = glCreateShader(GL_FRAGMENT_SHADER);
-    GLchar* fragment_shader_code[] = {defines, header_code, fragment_code};
+    const GLchar* fragment_shader_code[] = {defines, header_code, fragment_code};
     glShaderSource(fragment_shader_id, ARRAY_COUNT(fragment_shader_code),
                    fragment_shader_code, 0);
     glCompileShader(fragment_shader_id);
@@ -461,7 +423,7 @@ compile_basic_program(Opengl* opengl, Basic_Program* result) {
     format_string(defines, sizeof(defines),
                   "#version 330\n");
     
-    char* vertex_code = R"FOO(
+    const char* vertex_code = R"FOO(
     // Vertex code
     in v4 vert_p;
       in v2 vert_uv;
@@ -480,7 +442,7 @@ void main(void)
     }
     )FOO";
     
-    char* fragment_code = R"FOO(
+    const char* fragment_code = R"FOO(
     // Fragment code
     
     in vec2 frag_uv;
@@ -636,6 +598,4 @@ opengl_end_frame(Opengl* opengl, Render_Commands* commands) {
             } break;
         }
     }
-    
-    //#endif // #if 0
 }

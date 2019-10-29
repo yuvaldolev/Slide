@@ -6,7 +6,7 @@ set compiler_flags=-DSLIDE_DEVELOPER=1 -DSLIDE_DEBUG=1 -DSLIDE_RELEASE=0 %compil
 set linker_flags=-opt:ref -incremental:no
 
 REM Win32 Specific Compiler & Linker Flags
-set win32_compiler_flags=-DSLIDE_WIN32=1
+set win32_compiler_flags=-DSLIDE_WIN32=1 -DSLIDE_MAC=0
 set win32_linker_flags=user32.lib gdi32.lib winmm.lib opengl32.lib
 
 REM Compilation Setup

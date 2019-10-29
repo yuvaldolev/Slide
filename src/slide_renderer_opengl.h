@@ -1,10 +1,10 @@
 struct Opengl_Info {
     b32 modern_context;
     
-    char* vendor;
-    char* renderer;
-    char* version;
-    char* shading_language_version;
+    const char* vendor;
+    const char* renderer;
+    const char* version;
+    const char* shading_language_version;
     
     b32 opengl_ext_texture_srgb;
     b32 opengl_ext_framebuffer_srgb;
@@ -14,9 +14,9 @@ struct Opengl_Info {
 struct Opengl_Program_Common {
     GLuint prog_handle;
     
-    GLuint vert_p_id;
-    GLuint vert_uv_id;
-    GLuint vert_color_id;
+    GLint vert_p_id;
+    GLint vert_uv_id;
+    GLint vert_color_id;
 };
 
 struct Basic_Program {
