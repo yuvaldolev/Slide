@@ -44,7 +44,13 @@ struct Opengl {
     u32 max_vertex_count;
     
     Basic_Program basic_prog;
+    Basic_Program text_prog;
     
     u32 white[4][4];
     Renderer_Texture white_texture;
+    
+    FT_Library ft;
+    FT_Face face;
+    
+    GLuint text_texture;
 };

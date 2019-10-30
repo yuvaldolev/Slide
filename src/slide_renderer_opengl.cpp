@@ -416,6 +416,63 @@ opengl_create_program(const char* defines, const char* header_code,
     
     return program_id;
 }
+internal void
+compile_text_program(Opengl* opengl, Basic_Program* result) {
+    char defines[1024];
+    format_string(defines, sizeof(defines),
+                  "#version 330\n");
+    
+    const char* vertex_code = R"FOO(
+    // Vertex code
+    in v4 vert_p;
+      in v2 vert_uv;
+    in v4 vert_color;
+    
+    uniform m4x4 mvp;
+    
+out v2 frag_uv;
+    out v4 frag_color;
+    
+void main(void)
+    {
+        gl_Position = mvp * vert_p;
+        frag_uv = vert_uv;
+        frag_color = vert_color;
+    }
+    )FOO";
+    
+    const char* fragment_code = R"FOO(
+    // Fragment code
+    
+    in vec2 frag_uv;
+    in vec4 frag_color;
+    
+uniform sampler2D texture_sampler;
+
+out vec4 result_color;
+
+    void main(void)
+    {
+        vec4 tex_sample = texture(texture_sampler, frag_uv);
+        
+        if(tex_sample.r > 0)
+        {
+            v4 mod_color = frag_color * vec4(1, 1, 1, tex_sample.r);
+            result_color = mod_color;
+        }
+        else
+        {
+            discard;
+        }
+    }
+    )FOO";
+    
+    GLuint prog = opengl_create_program(defines, global_shader_header_code,
+                                        vertex_code, fragment_code, &result->common);
+    
+    result->mvp_id = glGetUniformLocation(prog, "mvp");
+    result->texture_sampler_id = glGetUniformLocation(prog, "texture_sampler");
+}
 
 internal void
 compile_basic_program(Opengl* opengl, Basic_Program* result) {
@@ -495,6 +552,7 @@ opengl_init(Opengl* opengl, Opengl_Info info) {
     glBindBuffer(GL_ARRAY_BUFFER, opengl->vertex_buffer);
     
     compile_basic_program(opengl, &opengl->basic_prog);
+    compile_text_program(opengl, &opengl->text_prog);
     
     for (u32 y = 0; y < 4; ++y) {
         for (u32 x = 0; x < 4; ++x) {
@@ -506,6 +564,29 @@ opengl_init(Opengl* opengl, Opengl_Info info) {
         opengl, 4, 4, opengl->white[0]);
     opengl->white_texture.dim.width = 4;
     opengl->white_texture.dim.height = 4;
+    
+    if (FT_Init_FreeType(&opengl->ft)) {
+        ASSERT(!"Could not init freetype library");
+    }
+    
+    if(FT_New_Face(opengl->ft, "data/fonts/DroidSansMono.ttf", 0, &opengl->face)) {
+        ASSERT(!"Could not open font\n");
+    }
+    
+    FT_Set_Pixel_Sizes(opengl->face, 0, 128);
+    
+    glActiveTexture(GL_TEXTURE0);
+    glGenTextures(1, &opengl->text_texture);
+    glBindTexture(GL_TEXTURE_2D, opengl->text_texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 internal Render_Commands*
@@ -564,6 +645,67 @@ opengl_end_frame(Opengl* opengl, Render_Commands* commands) {
     glScissor(0, 0, commands->render_dim.width,
               commands->render_dim.height);
     
+#if 1
+    Vector4 color_v = store_color(make_v4(1, 1, 1, 1));
+    u32 color = rgba_pack_4x8(255.0f * color_v);
+    
+    Textured_Vertex verts[4] = {};
+    
+    verts[0].p = make_v4(100, 100, 0, 1);
+    verts[0].uv = make_v2(0, 1);
+    verts[0].color = color;
+    
+    verts[1].p = make_v4(100, 148, 0, 1);
+    verts[1].uv = make_v2(0, 0);
+    verts[1].color = color;
+    
+    verts[2].p = make_v4(148, 100, 0, 1);
+    verts[2].uv = make_v2(1, 1);
+    verts[2].color = color;
+    
+    verts[3].p = make_v4(148, 148, 0, 1);
+    verts[3].uv = make_v2(1, 0);
+    verts[3].color = color;
+    
+    Render_Setup setup = {};
+    setup.fog_start_distance = 0.0f;
+    setup.fog_end_distance = 1.0f;
+    setup.clip_rect = rect_min_dim(0, 0, commands->render_dim.width,
+                                   commands->render_dim.height);
+    setup.proj = orthographic_projection(0, (f32)commands->render_dim.width,
+                                         0, (f32)commands->render_dim.height,
+                                         -1.0f, 1.0f);
+    
+    use_program_begin(&opengl->text_prog, &setup);
+    
+    glBufferData(GL_ARRAY_BUFFER,
+                 sizeof(verts),
+                 verts,
+                 GL_STREAM_DRAW);
+    
+    if(FT_Load_Char(opengl->face, 'A', FT_LOAD_RENDER)) {
+        ASSERT(!"Load Char Failed!");
+    }
+    
+    glBindTexture(GL_TEXTURE_2D, opengl->text_texture);
+    
+    FT_GlyphSlot g = opengl->face->glyph;
+    
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_RED,
+        g->bitmap.width,
+        g->bitmap.rows,
+        0,
+        GL_RED,
+        GL_UNSIGNED_BYTE,
+        g->bitmap.buffer);
+    
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    
+    use_program_end(&opengl->text_prog.common);
+#else
     for (u8* header_at = commands->push_buffer_base;
          header_at < commands->push_buffer_data_at;) {
         Render_Group_Entry_Header* header =
@@ -598,4 +740,5 @@ opengl_end_frame(Opengl* opengl, Render_Commands* commands) {
             } break;
         }
     }
+#endif // #if 1
 }

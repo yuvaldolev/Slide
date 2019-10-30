@@ -1,5 +1,8 @@
 #include <Cocoa/Cocoa.h>
 
+#include <ft2build.h>
+#include FT_FREETYPE_H
+
 #define GL_GLEXT_LEGACY
 #include <OpenGL/OpenGL.h>
 #include <OpenGL/gl.h>
@@ -137,8 +140,8 @@ mac_init_opengl(NSWindow* window, Platform_Renderer_Limits* limits) {
         NSOpenGLPFAAlphaSize, 8,
         NSOpenGLPFADepthSize, 24,
         NSOpenGLPFAOpenGLProfile, NSOpenGLProfileVersion3_2Core,
-        //NSOpenGLPFASampleBuffers, 1,
-        //NSOpenGLPFASamples, 16,
+        NSOpenGLPFASampleBuffers, 1,
+        NSOpenGLPFASamples, 16,
         0
     };
     NSOpenGLPixelFormat* pixel_format = [[NSOpenGLPixelFormat alloc]
