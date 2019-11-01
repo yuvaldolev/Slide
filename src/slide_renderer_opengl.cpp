@@ -269,30 +269,78 @@ opengl_get_info(b32 is_modern_context) {
     return result;
 }
 
-internal Renderer_Texture
-opengl_allocate_texture(Opengl* opengl, u32 width, u32 height, void* data) {
-    Renderer_Texture result;
-    result.dim.width = width;
-    result.dim.height = height;
+inline GLuint
+get_texture_handle_for(Opengl* opengl, Renderer_Texture texture) {
+    ASSERT(texture.index < opengl->max_texture_handle_count);
     
-    GLuint handle;
-    glGenTextures(1, &handle);
+    GLuint result = opengl->texture_handles[texture.index];
+    return result;
+}
+
+internal void
+opengl_init_texture(Opengl* opengl, Renderer_Texture texture,
+                    Renderer_Texture_Format::Type in_format,
+                    Renderer_Texture_Format::Type out_format,
+                    void* data) {
+    using namespace Renderer_Texture_Format;
+    
+    GLuint handle = get_texture_handle_for(opengl, texture);
     glBindTexture(GL_TEXTURE_2D, handle);
-    glTexImage2D(GL_TEXTURE_2D, 0,
-                 opengl->default_sprite_texture_format,
-                 width, height, 0,
-                 GL_BGRA_EXT, GL_UNSIGNED_BYTE, data);
     
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    GLenum format;
+    switch (in_format) {
+        case RGBA: {
+            format = GL_RGBA;
+        } break;
+        
+        case BGRA: {
+            format = GL_BGRA_EXT;
+        } break;
+        
+        case RED: {
+            format = GL_RED;
+        } break;
+        
+        INVALID_DEFAULT_CASE();
+    }
+    
+    GLint internal_format;
+    switch (out_format) {
+        case RGBA: {
+            internal_format = GL_RGBA8;
+        } break;
+        
+        case RED: {
+            internal_format = GL_RED;
+        } break;
+        
+        INVALID_DEFAULT_CASE();
+    }
+    
+    glTexImage2D(GL_TEXTURE_2D, 0,
+                 internal_format,
+                 texture.width, texture.height, 0,
+                 format, GL_UNSIGNED_BYTE, data);
     
     glBindTexture(GL_TEXTURE_2D, 0);
-    
-    result.texture_handle = (void*)((umm)handle);
-    
-    return result;
+}
+
+internal void
+opengl_manage_textures(Opengl* opengl) {
+    Renderer_Texture_Queue* queue = &opengl->header.texture_queue;
+    while (queue->entry_count) {
+        Renderer_Texture_Queue_Entry* entry =
+            &queue->entries[queue->first_entry_index];
+        opengl_init_texture(opengl, entry->texture,
+                            entry->in_format, entry->out_format,
+                            entry->data);
+        
+        --queue->entry_count;
+        ++queue->first_entry_index;
+        if (queue->first_entry_index >= ARRAY_COUNT(queue->entries)) {
+            queue->first_entry_index = 0;
+        }
+    }
 }
 
 internal b32
@@ -430,10 +478,10 @@ compile_text_program(Opengl* opengl, Basic_Program* result) {
     
     uniform m4x4 mvp;
     
-out v2 frag_uv;
+    out v2 frag_uv;
     out v4 frag_color;
     
-void main(void)
+    void main(void)
     {
         gl_Position = mvp * vert_p;
         frag_uv = vert_uv;
@@ -447,10 +495,10 @@ void main(void)
     in vec2 frag_uv;
     in vec4 frag_color;
     
-uniform sampler2D texture_sampler;
-
-out vec4 result_color;
-
+    uniform sampler2D texture_sampler;
+    
+    out vec4 result_color;
+    
     void main(void)
     {
         vec4 tex_sample = texture(texture_sampler, frag_uv);
@@ -488,10 +536,10 @@ compile_basic_program(Opengl* opengl, Basic_Program* result) {
     
     uniform m4x4 mvp;
     
-out v2 frag_uv;
+    out v2 frag_uv;
     out v4 frag_color;
     
-void main(void)
+    void main(void)
     {
         gl_Position = mvp * vert_p;
         frag_uv = vert_uv;
@@ -501,14 +549,13 @@ void main(void)
     
     const char* fragment_code = R"FOO(
     // Fragment code
-    
     in vec2 frag_uv;
     in vec4 frag_color;
     
-uniform sampler2D texture_sampler;
-
-out vec4 result_color;
-
+    uniform sampler2D texture_sampler;
+    
+    out vec4 result_color;
+    
     void main(void)
     {
         vec4 tex_sample = texture(texture_sampler, frag_uv);
@@ -516,8 +563,8 @@ out vec4 result_color;
         if(tex_sample.a > 0)
         {
             v4 mod_color = frag_color * tex_sample;
-result_color = mod_color;
-}
+    result_color = mod_color;
+    }
         else
         {
             discard;
@@ -534,7 +581,7 @@ result_color = mod_color;
 
 internal void
 opengl_init(Opengl* opengl, Opengl_Info info) {
-    opengl->default_sprite_texture_format = GL_RGBA8;
+    opengl->default_sprite_texture_format = Renderer_Texture_Format::RGBA;
     
 #if SLIDE_DEVELOPER
     if(glDebugMessageCallbackARB)
@@ -554,39 +601,31 @@ opengl_init(Opengl* opengl, Opengl_Info info) {
     compile_basic_program(opengl, &opengl->basic_prog);
     compile_text_program(opengl, &opengl->text_prog);
     
+    glGenTextures(opengl->max_texture_handle_count, opengl->texture_handles);
+    for (u32 handle_index = 0;
+         handle_index < opengl->max_texture_handle_count;
+         ++handle_index) {
+        glBindTexture(GL_TEXTURE_2D, opengl->texture_handles[handle_index]);
+        
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    }
+    
     for (u32 y = 0; y < 4; ++y) {
         for (u32 x = 0; x < 4; ++x) {
             opengl->white[y][x] = 0xFFFFFFFF;
         }
     }
     
-    opengl->white_texture = opengl_allocate_texture(
-        opengl, 4, 4, opengl->white[0]);
-    opengl->white_texture.dim.width = 4;
-    opengl->white_texture.dim.height = 4;
+    opengl->white_texture = refer_to_texture(0, 4, 4);
+    opengl_init_texture(opengl, opengl->white_texture,
+                        Renderer_Texture_Format::BGRA,
+                        opengl->default_sprite_texture_format,
+                        opengl->white[0]);
     
-    if (FT_Init_FreeType(&opengl->ft)) {
-        ASSERT(!"Could not init freetype library");
-    }
-    
-    if(FT_New_Face(opengl->ft, "data/fonts/DroidSansMono.ttf", 0, &opengl->face)) {
-        ASSERT(!"Could not open font\n");
-    }
-    
-    FT_Set_Pixel_Sizes(opengl->face, 0, 128);
-    
-    glActiveTexture(GL_TEXTURE0);
-    glGenTextures(1, &opengl->text_texture);
-    glBindTexture(GL_TEXTURE_2D, opengl->text_texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    
-    glBindTexture(GL_TEXTURE_2D, 0);
+    opengl->render_commands.next_texture_handle_index = 1;
 }
 
 internal Render_Commands*
@@ -606,9 +645,30 @@ opengl_begin_frame(Opengl* opengl, Vector2u render_dim) {
     commands->quad_textures = opengl->bitmap_array;
     commands->white_texture = opengl->white_texture;
     
+    commands->max_texture_handle_count = opengl->max_texture_handle_count;
+    
+    commands->texture_queue = &opengl->header.texture_queue;
+    
     return commands;
 }
 
+internal void
+flush_textured_quads_entry(Opengl* opengl, Render_Commands* commands,
+                           Render_Entry_Textured_Quads* entry) {
+    glBufferData(GL_ARRAY_BUFFER,
+                 commands->vertex_count * sizeof(Textured_Vertex),
+                 commands->vertex_array,
+                 GL_STREAM_DRAW);
+    
+    for (u32 vert_index = entry->vertex_array_offset;
+         vert_index < (entry->vertex_array_offset + 4 * entry->quad_count);
+         vert_index += 4) {
+        Renderer_Texture texture = commands->quad_textures[vert_index >> 2];
+        GLuint texture_handle = get_texture_handle_for(opengl, texture);
+        glBindTexture(GL_TEXTURE_2D, texture_handle);
+        glDrawArrays(GL_TRIANGLE_STRIP, vert_index, 4);
+    }
+}
 
 internal Vector4
 store_color(Vector4 source) {
@@ -621,7 +681,6 @@ store_color(Vector4 source) {
     return dest;
 }
 
-
 internal void
 opengl_end_frame(Opengl* opengl, Render_Commands* commands) {
     glDepthMask(GL_TRUE);
@@ -631,6 +690,8 @@ opengl_end_frame(Opengl* opengl, Render_Commands* commands) {
     glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
     glEnable(GL_SAMPLE_ALPHA_TO_ONE);
     glEnable(GL_MULTISAMPLE);
+    
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
@@ -645,8 +706,10 @@ opengl_end_frame(Opengl* opengl, Render_Commands* commands) {
     glScissor(0, 0, commands->render_dim.width,
               commands->render_dim.height);
     
-#if 1
-    Vector4 color_v = store_color(make_v4(1, 1, 1, 1));
+    opengl_manage_textures(opengl);
+    
+#if 0
+    Vector4 color_v = store_color(make_v4(1, 0, 0, 1));
     u32 color = rgba_pack_4x8(255.0f * color_v);
     
     Textured_Vertex verts[4] = {};
@@ -676,31 +739,14 @@ opengl_end_frame(Opengl* opengl, Render_Commands* commands) {
                                          0, (f32)commands->render_dim.height,
                                          -1.0f, 1.0f);
     
-    use_program_begin(&opengl->text_prog, &setup);
+    use_program_begin(&opengl->basic_prog, &setup);
     
     glBufferData(GL_ARRAY_BUFFER,
                  sizeof(verts),
                  verts,
                  GL_STREAM_DRAW);
     
-    if(FT_Load_Char(opengl->face, 'A', FT_LOAD_RENDER)) {
-        ASSERT(!"Load Char Failed!");
-    }
-    
-    glBindTexture(GL_TEXTURE_2D, opengl->text_texture);
-    
-    FT_GlyphSlot g = opengl->face->glyph;
-    
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        GL_RED,
-        g->bitmap.width,
-        g->bitmap.rows,
-        0,
-        GL_RED,
-        GL_UNSIGNED_BYTE,
-        g->bitmap.buffer);
+    glBindTexture(GL_TEXTURE_2D, get_texture_handle_for(opengl, opengl->white_texture));
     
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     
@@ -722,23 +768,22 @@ opengl_end_frame(Opengl* opengl, Render_Commands* commands) {
                 Render_Setup* setup = &entry->setup;
                 
                 use_program_begin(&opengl->basic_prog, setup);
-                
-                glBufferData(GL_ARRAY_BUFFER,
-                             commands->vertex_count * sizeof(Textured_Vertex),
-                             commands->vertex_array,
-                             GL_STREAM_DRAW);
-                
-                for (u32 vert_index = entry->vertex_array_offset;
-                     vert_index < (entry->vertex_array_offset + 4 * entry->quad_count);
-                     vert_index += 4) {
-                    Renderer_Texture texture = commands->quad_textures[vert_index >> 2];
-                    glBindTexture(GL_TEXTURE_2D, (GLuint)((u32)(umm)texture.texture_handle));
-                    glDrawArrays(GL_TRIANGLE_STRIP, vert_index, 4);
-                }
-                
+                flush_textured_quads_entry(opengl, commands, entry);
                 use_program_end(&opengl->basic_prog.common);
+            } break;
+            
+            case Render_Group_Entry_Kind::TEXT: {
+                header_at += sizeof(Render_Entry_Textured_Quads);
+                Render_Entry_Textured_Quads* entry =
+                    (Render_Entry_Textured_Quads*)data;
+                
+                Render_Setup* setup = &entry->setup;
+                
+                use_program_begin(&opengl->text_prog, setup);
+                flush_textured_quads_entry(opengl, commands, entry);
+                use_program_end(&opengl->text_prog.common);
             } break;
         }
     }
-#endif // #if 1
+#endif // #if 0
 }

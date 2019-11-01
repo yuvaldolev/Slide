@@ -1,5 +1,8 @@
 #if !defined(SLIDE_H)
 
+#include <ft2build.h>
+#include FT_FREETYPE_H
+
 #include "yd/yd_string.h"
 #include "yd/yd_memory.h"
 
@@ -9,6 +12,7 @@
 #include "slide_math.h"
 
 #include "slide_renderer.h"
+#include "slide_fonts.h"
 
 namespace Slide_Item_Kind {
     enum Type {
@@ -47,7 +51,7 @@ struct Slideshow {
     Slide* current_slide;
 };
 
-struct Slideshow_State {
+struct App_State {
     Memory_Arena arena;
     
     Slideshow slideshow;

@@ -2,17 +2,6 @@
 
 struct Platform_Renderer;
 struct Render_Commands;
-struct Renderer_Texture;
-
-#define RENDERER_BEGIN_FRAME(name) Render_Commands* name(Platform_Renderer* renderer, Vector2u render_dim)
-typedef RENDERER_BEGIN_FRAME(Renderer_Begin_Frame);
-
-#define RENDERER_END_FRAME(name) void name(Platform_Renderer* renderer, Render_Commands* frame)
-typedef RENDERER_END_FRAME(Renderer_End_Frame);
-
-// TODO(yuval): Temporary! Use a texture queue instead
-#define RENDERER_ALLOCATE_TEXTURE(name) Renderer_Texture name(Platform_Renderer* renderer, u32 width, u32 height, void* data)
-typedef RENDERER_ALLOCATE_TEXTURE(Renderer_Allocate_Texture);
 
 namespace Draw_Mode {
     enum Type {
@@ -22,33 +11,68 @@ namespace Draw_Mode {
     };
 }
 
-struct Renderer_Texture {
-    void* texture_handle;
-    Vector2u dim;
+#if 0
+namespace Renderer_Texture_Target {
+    enum Type {
+        TEXTURE_2D
+    };
+}
+#endif // #if 0
+
+namespace Renderer_Texture_Format {
+    enum Type {
+        RGBA,
+        BGRA,
+        RED
+    };
+}
+
+union Renderer_Texture {
+    u64 packed;
+    
+    struct {
+        u32 index;
+        u16 width;
+        u16 height;
+    };
 };
 
-struct Texture_Op {
+struct Renderer_Texture_Queue_Entry {
     Renderer_Texture texture;
+    Renderer_Texture_Format::Type in_format;
+    Renderer_Texture_Format::Type out_format;
     void* data;
 };
 
-struct Renderer_Font {
-    Renderer_Texture characters[255];
+struct Renderer_Texture_Queue {
+    umm entry_count;
+    umm first_entry_index;
+    
+    Renderer_Texture_Queue_Entry entries[256];
 };
 
 struct Platform_Renderer_Limits {
     u32 max_quad_count_per_frame;
+    u32 max_texture_handles;
 };
+
+#define RENDERER_BEGIN_FRAME(name) Render_Commands* name(Platform_Renderer* renderer, Vector2u render_dim)
+typedef RENDERER_BEGIN_FRAME(Renderer_Begin_Frame);
+
+#define RENDERER_END_FRAME(name) void name(Platform_Renderer* renderer, Render_Commands* frame)
+typedef RENDERER_END_FRAME(Renderer_End_Frame);
 
 struct Platform_Renderer {
     Renderer_Begin_Frame* begin_frame;
     Renderer_End_Frame* end_frame;
-    Renderer_Allocate_Texture* allocate_texture;
+    
+    Renderer_Texture_Queue texture_queue;
 };
 
 namespace Render_Group_Entry_Kind {
     enum Type {
-        TEXTURED_QUADS
+        TEXTURED_QUADS,
+        TEXT
     };
 }
 
@@ -123,12 +147,55 @@ struct Render_Commands {
     Renderer_Texture* quad_textures;
     Renderer_Texture white_texture;
     
-    Renderer_Font* default_font;
-    
     Vector4 clear_color;
     
-    u32 max_render_target_index;
+    u32 next_texture_handle_index;
+    u32 max_texture_handle_count;
+    
+    Renderer_Texture_Queue* texture_queue;
 };
+
+inline Renderer_Texture
+acquire_texture(Render_Commands* commands, u32 width, u32 height);
+
+internal void
+texture_queue_add_entry(Renderer_Texture_Queue* queue,
+                        Renderer_Texture texture,
+                        Renderer_Texture_Format::Type in_format,
+                        Renderer_Texture_Format::Type out_format,
+                        void* data);
+internal void
+init_renderer_texture_queue(Renderer_Texture_Queue* queue) {
+    queue->entry_count = 0;
+    queue->first_entry_index = 0;
+}
+
+inline b32
+is_valid_texture(Renderer_Texture texture) {
+    b32 result = (texture.packed != 0);
+    return result;
+}
+
+internal Renderer_Texture
+refer_to_texture(u32 index, u32 width, u32 height) {
+    Renderer_Texture result;
+    
+    result.index = index;
+    result.width = width;
+    result.height = height;
+    
+    ASSERT(result.index == index);
+    ASSERT(result.width  == width);
+    ASSERT(result.height == height);
+    
+    return result;
+}
+
+inline Renderer_Texture
+refer_to_texture(u32 index, Vector2u dim) {
+    Renderer_Texture result = refer_to_texture(index, dim.width, dim.height);
+    return result;
+}
 
 #define SLIDE_RENDERER_H
 #endif // #if !defined(SLIDE_RENDERER_H)

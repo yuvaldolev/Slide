@@ -1,9 +1,48 @@
+internal u32
+acquire_texture_handle(Render_Commands* commands) {
+    ASSERT(commands->next_texture_handle_index < commands->max_texture_handle_count);
+    
+    u32 result = commands->next_texture_handle_index++;
+    return result;
+}
+
+inline Renderer_Texture
+acquire_texture(Render_Commands* commands, u32 width, u32 height) {
+    u32 handle_index = acquire_texture_handle(commands);
+    Renderer_Texture result = refer_to_texture(handle_index, width, height);
+    
+    return result;
+}
+
+inline Renderer_Texture
+acquire_texture(Render_Commands* commands, Vector2u dim) {
+    Renderer_Texture result =
+        acquire_texture(commands, dim.width, dim.height);
+    return result;
+}
+
+internal void
+texture_queue_add_entry(Renderer_Texture_Queue* queue,
+                        Renderer_Texture texture,
+                        Renderer_Texture_Format::Type in_format,
+                        Renderer_Texture_Format::Type out_format,
+                        void* data) {
+    if (queue->entry_count < ARRAY_COUNT(queue->entries)) {
+        umm entry_index = (queue->first_entry_index + queue->entry_count++) %
+            ARRAY_COUNT(queue->entries);
+        
+        Renderer_Texture_Queue_Entry* entry = &queue->entries[entry_index];
+        entry->texture = texture;
+        entry->in_format = in_format;
+        entry->out_format = out_format;
+        entry->data = data;
+    } else {
+        ASSERT(!"Too Many Texture Allocation Requests!");
+    }
+}
+
 inline void
 push_setup(Render_Group* group, Render_Setup* new_setup) {
-    if (group->commands->max_render_target_index < new_setup->render_target_index) {
-        group->commands->max_render_target_index = new_setup->render_target_index;
-    }
-    
     group->last_setup = *new_setup;
     group->current_quads = 0;
 }
@@ -49,14 +88,23 @@ push_render_element(Render_Group* group, u32 size,
     return result;
 }
 
+internal Render_Group_Entry_Header*
+get_render_element_header(void* element) {
+    Render_Group_Entry_Header* result = (Render_Group_Entry_Header*)
+        ((u8*)element - sizeof(Render_Group_Entry_Header));
+    
+    return result;
+}
+
 internal Render_Entry_Textured_Quads*
-get_current_quads(Render_Group* group, u32 quad_count) {
+get_current_quads(Render_Group* group, u32 quad_count,
+                  Render_Group_Entry_Kind::Type kind) {
     Render_Commands* commands = group->commands;
     
-    if (!group->current_quads) {
+    if (!group->current_quads ||
+        (get_render_element_header(group->current_quads)->kind != kind)) {
         group->current_quads = (Render_Entry_Textured_Quads*)
-            push_render_element(group, sizeof(Render_Entry_Textured_Quads),
-                                Render_Group_Entry_Kind::TEXTURED_QUADS);
+            push_render_element(group, sizeof(Render_Entry_Textured_Quads), kind);
         group->current_quads->quad_count = 0;
         group->current_quads->vertex_array_offset = commands->vertex_count;
         group->current_quads->setup = group->last_setup;
@@ -66,6 +114,24 @@ get_current_quads(Render_Group* group, u32 quad_count) {
     if ((commands->vertex_count + 4 * quad_count) > commands->max_vertex_count) {
         result = 0;
     }
+    
+    return result;
+}
+
+inline Render_Entry_Textured_Quads*
+get_current_quads(Render_Group* group, u32 quad_count) {
+    Render_Entry_Textured_Quads* result =
+        get_current_quads(group, quad_count,
+                          Render_Group_Entry_Kind::TEXTURED_QUADS);
+    
+    return result;
+}
+
+inline Render_Entry_Textured_Quads*
+get_current_text_quads(Render_Group* group) {
+    Render_Entry_Textured_Quads* result =
+        get_current_quads(group, 1,
+                          Render_Group_Entry_Kind::TEXT);
     
     return result;
 }
@@ -163,8 +229,8 @@ get_texture_dim(Renderer_Texture texture, f32 height) {
     Vector2 result;
     
     f32 width_over_height = 1.0f;
-    if (texture.dim.height != 0) {
-        width_over_height = ((f32)texture.dim.width / (f32)texture.dim.height);
+    if (texture.height != 0) {
+        width_over_height = ((f32)texture.width / (f32)texture.height);
     }
     
     result.width = height * width_over_height;
@@ -174,18 +240,17 @@ get_texture_dim(Renderer_Texture texture, f32 height) {
 }
 
 internal void
-push_texture(Render_Group* group, Renderer_Texture texture,
-             Vector3 min_p, Vector2 dim,
-             Vector4 color = make_v4(1.0f, 1.0f, 1.0f, 1.0f)) {
-    Render_Entry_Textured_Quads* entry = get_current_quads(group, 1);
+push_texture_of_kind(Render_Group* group, Renderer_Texture texture,
+                     Vector3 min_p, Vector2 dim, Vector4 color,
+                     Render_Group_Entry_Kind::Type kind,
+                     Vector2 min_uv = make_v2(0, 0),
+                     Vector2 max_uv = make_v2(1, 1)) {
+    Render_Entry_Textured_Quads* entry = get_current_quads(group, 1, kind);
     if (entry) {
         Vector4 premul_color = store_color(color);
         u32 c = rgba_pack_4x8(255.0f * premul_color);
         
         Vector3 max_p = min_p + make_v3(dim, 0.0f);
-        
-        Vector2 min_uv = {0, 0};
-        Vector2 max_uv = {1, 1};
         
         push_quad(group, texture,
                   // NOTE(yuval): Point 0
@@ -205,12 +270,19 @@ push_texture(Render_Group* group, Renderer_Texture texture,
 
 inline void
 push_texture(Render_Group* group, Renderer_Texture texture,
+             Vector3 min_p, Vector2 dim,
+             Vector4 color = make_v4(1.0f, 1.0f, 1.0f, 1.0f)) {
+    push_texture_of_kind(group, texture, min_p, dim, color,
+                         Render_Group_Entry_Kind::TEXTURED_QUADS);
+}
+
+inline void
+push_texture(Render_Group* group, Renderer_Texture texture,
              Vector3 min_p, f32 height,
              Vector4 color = make_v4(1.0f, 1.0f, 1.0f, 1.0f)) {
     Vector2 scaled_dim = get_texture_dim(texture, height);
     push_texture(group, texture, min_p, scaled_dim, color);
 }
-
 
 inline void
 push_texture(Render_Group* group, Renderer_Texture texture,
@@ -219,22 +291,12 @@ push_texture(Render_Group* group, Renderer_Texture texture,
     push_texture(group, texture, make_v3(min_p, 0.0f), height, color);
 }
 
-inline Vector2
-get_character_dim(char character, Renderer_Font* font, f32 height) {
-    Renderer_Texture char_tex = font->characters[character];
-    f32 adjusted_height = height * ((f32)char_tex.dim.height /
-                                    (f32)font->characters['F'].dim.height);
-    
-    Vector2 scaled_dim = get_texture_dim(char_tex, adjusted_height);
-    return scaled_dim;
-}
-
 internal void
-push_text(Render_Group* group, String text,
-          Renderer_Font* font, Vector3 pos,
-          f32 height, Vector2 spacing, Vector4 color,
+push_text(Render_Group* group, Memory_Arena* arena,
+          String text, Font* font, Vector3 pos,
+          Vector2 spacing, Vector4 color,
           Draw_Mode::Type draw_mode = Draw_Mode::CENTERED) {
-    Vector3 curr_min_p = pos;
+    Vector3 curr_pos = pos;
     
     if (draw_mode != Draw_Mode::LEFT_JUSTIFY) {
         f32 text_width = 0.0f;
@@ -242,8 +304,10 @@ push_text(Render_Group* group, String text,
         for (umm char_index = 0;
              char_index < text.count;
              ++char_index) {
-            Vector2 char_dim = get_character_dim(text.data[char_index], font, height);
-            text_width += (char_dim.width + spacing.x);
+            Font_Glyph* glyph = get_font_glyph(group->commands, font,
+                                               text.data[char_index], arena);
+            
+            text_width += ((glyph->advance.x / 64.0f) + spacing.x);
         }
         
         f32 x_distance_to_min_p = text_width;
@@ -251,7 +315,7 @@ push_text(Render_Group* group, String text,
             x_distance_to_min_p /= 2.0f;
         }
         
-        curr_min_p.x -= x_distance_to_min_p;
+        curr_pos.x -= x_distance_to_min_p;
     }
     
     for (umm char_index = 0;
@@ -262,9 +326,17 @@ push_text(Render_Group* group, String text,
             // TODO(yuval): Add highest character height
             // curr_min_p.y -= spacing.y;
         } else {
-            char character = text.data[char_index];
-            Vector2 char_dim = get_character_dim(character, font, height);
+            Font_Glyph* glyph = get_font_glyph(group->commands, font,
+                                               text.data[char_index], arena);
             
+            Vector3 min_p = curr_pos;
+            min_p.x += glyph->bearing.x;
+            min_p.y -= (glyph->texture.height - glyph->bearing.y);
+            
+            Vector2 dim = {
+                (f32)glyph->texture.width,
+                (f32)glyph->texture.height
+            };
 #if 0
             // NOTE(yuval): Debug Rectangle
             push_rect(group,
@@ -272,39 +344,41 @@ push_text(Render_Group* group, String text,
                       make_v3(0, 0, 0), make_v4(1, 1, 1, 1));
 #endif // #if 0
             
-            push_texture(group, font->characters[character], curr_min_p,
-                         char_dim, color);
+            push_texture_of_kind(group, glyph->texture, min_p, dim, color,
+                                 Render_Group_Entry_Kind::TEXT,
+                                 make_v2(0, 1),
+                                 make_v2(1, 0));
             
-            curr_min_p.x += (char_dim.width + spacing.x);
+            curr_pos.x += ((glyph->advance.x / 64.0f) + spacing.x);
         }
     }
 }
 
 inline void
-push_text(Render_Group* group, String text,
-          Renderer_Font* font, Vector2 pos,
-          f32 height, Vector2 spacing, Vector4 color,
+push_text(Render_Group* group, Memory_Arena* arena,
+          String text, Font* font, Vector2 pos,
+          Vector2 spacing, Vector4 color,
           Draw_Mode::Type draw_mode = Draw_Mode::CENTERED) {
-    push_text(group, text, font, make_v3(pos, 0.0f),
-              height, spacing, color);
+    push_text(group, arena, text, font,
+              make_v3(pos, 0.0f), spacing, color);
 }
 
 inline void
-push_text(Render_Group* group, const char* text,
-          Renderer_Font* font, Vector3 pos,
-          f32 height, Vector2 spacing, Vector4 color,
+push_text(Render_Group* group, Memory_Arena* arena,
+          const char* text, Font* font, Vector3 pos,
+          Vector2 spacing, Vector4 color,
           Draw_Mode::Type draw_mode = Draw_Mode::CENTERED) {
-    push_text(group, make_string_slowly(text), font,
-              pos, height, spacing, color);
+    push_text(group, arena, make_string_slowly(text),
+              font, pos, spacing, color);
 }
 
 inline void
-push_text(Render_Group* group, const char* text,
-          Renderer_Font* font, Vector2 pos,
+push_text(Render_Group* group, Memory_Arena* arena,
+          const char* text, Font* font, Vector2 pos,
           f32 height, Vector2 spacing, Vector4 color,
           Draw_Mode::Type draw_mode = Draw_Mode::CENTERED) {
-    push_text(group, text, font, make_v3(pos, 0.0f),
-              height, spacing, color);
+    push_text(group, arena, text, font,
+              make_v3(pos, 0.0f), spacing, color);
 }
 
 internal Render_Group

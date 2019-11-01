@@ -33,7 +33,7 @@ extern Platform_Api platform;
 struct Application {
     Platform_Api platform_api;
     
-    struct Slideshow_State* state;
+    struct App_State* state;
 };
 
 #define SLIDE_PLATFORM_H

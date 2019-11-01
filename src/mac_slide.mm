@@ -95,43 +95,6 @@ internal PLATFORM_WRITE_ENTIRE_FILE(mac_write_entire_file) {
     return result;
 }
 
-internal Renderer_Font
-mac_load_font(Platform_Renderer* renderer, const char* path) {
-    Renderer_Font result = {};
-    
-    // TODO(yuval): Require Only The Font's Name Instead Of Requiring The Full Path
-    Read_File_Result font_file = mac_read_entire_file(path);
-    
-    u8* at = (u8*)font_file.contents;
-    u8* last_at = at;
-    u32 character = 0;
-    while (*at) {
-        while (!is_spacing(*at)) {
-            ++at;
-        }
-        
-        String width_str = make_string(last_at, at - last_at);
-        u32 width = to_u32(width_str);
-        
-        last_at = ++at;
-        
-        while (!is_spacing(*at)) {
-            ++at;
-        }
-        
-        String height_str = make_string(last_at, at - last_at);
-        u32 height = to_u32(height_str);
-        
-        result.characters[character++] =
-            renderer->allocate_texture(renderer, width, height, ++at);
-        
-        at += width * height * 4;
-        last_at = at;
-    }
-    
-    return result;
-}
-
 internal Vector2u
 mac_get_window_dimensions(NSWindow* window) {
     NSRect frame = [window frame];
@@ -193,17 +156,12 @@ main(int arg_count, char** args) {
         Platform_Renderer* renderer =
             mac_init_default_renderer(window, &limits);
         
-        Renderer_Font default_font = mac_load_font(
-            renderer, "data/generated_assets/fonts/KarminaBold.sf");
-        
         global_running = true;
         while (global_running) {
             Vector2u dimensions = mac_get_window_dimensions(window);
             
             Render_Commands* frame =
                 renderer->begin_frame(renderer, dimensions);
-            
-            frame->default_font = &default_font;
             
             NSEvent* event;
             do {

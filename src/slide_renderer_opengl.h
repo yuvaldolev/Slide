@@ -31,26 +31,22 @@ struct Opengl {
     
     Render_Commands render_commands;
     
-    GLuint default_sprite_texture_format;
-    GLuint default_framebuffer_texture_format;
+    Renderer_Texture_Format::Type default_sprite_texture_format;
     
     GLuint vertex_buffer;
     
     u8 push_buffer_memory[65536];
     Textured_Vertex* vertex_array;
     Renderer_Texture* bitmap_array;
+    GLuint* texture_handles;
     
     u32 max_quad_texture_count;
     u32 max_vertex_count;
+    u32 max_texture_handle_count;
     
     Basic_Program basic_prog;
     Basic_Program text_prog;
     
     u32 white[4][4];
     Renderer_Texture white_texture;
-    
-    FT_Library ft;
-    FT_Face face;
-    
-    GLuint text_texture;
 };

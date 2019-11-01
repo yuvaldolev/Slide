@@ -16,6 +16,9 @@
 // in the opengl renderer
 #define ASSERT(expression) if(!(expression)) {*(volatile int *)0 = 0;}
 
+#define INVALID_CODE_PATH(...) ASSERT(!"Invalid Code Path")
+#define INVALID_DEFAULT_CASE(...) default: {INVALID_CODE_PATH();} break
+
 #include "slide_platform.h"
 #include "slide_types.h"
 #include "slide_intrinsics.h"

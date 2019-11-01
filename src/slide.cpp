@@ -8,9 +8,8 @@
 
 #include "slide_math.cpp"
 
+#include "slide_fonts.cpp"
 #include "slide_renderer.cpp"
-
-Platform_Api platform;
 
 internal Slide_Item*
 make_slide_item(Memory_Arena* arena, Slide_Item_Kind::Type kind, Vector2 pos,
@@ -37,13 +36,15 @@ make_text_item(Memory_Arena* arena,
     return result;
 }
 
+Platform_Api platform;
+
 internal void
 update_and_render(Application* app, Render_Commands* render_commands) {
     platform = app->platform_api;
     
-    Slideshow_State* state = app->state;
+    App_State* state = app->state;
     if (!state) {
-        state = app->state = BOOTSTRAP_PUSH_STRUCT(Slideshow_State, arena);
+        state = app->state = BOOTSTRAP_PUSH_STRUCT(App_State, arena);
         
         Slideshow* slideshow = &state->slideshow;
         
@@ -51,7 +52,7 @@ update_and_render(Application* app, Render_Commands* render_commands) {
         slide1->background_color = make_v4(0.5f, 0.03f, 0.06f, 1.0f);
         
         Slide_Item* slide1_text =
-            make_text_item(&state->arena, BUNDLE_LITERAL("Hello World"));
+            make_text_item(&state->arena, BUNDLE_LITERAL("Hello World, Program"));
         slide1->first_item = slide1_text;
         
         slideshow->first_slide = slide1;
@@ -89,6 +90,9 @@ update_and_render(Application* app, Render_Commands* render_commands) {
         push_rect(&render_group, background_rect,
                   make_v3(0.0f, 0.0f, 0.0f), slide->background_color);
         
+        Font* font = get_font_at_size("data/fonts", "KarminaBold.ttf",
+                                      128, &state->arena);
+        
         for (Slide_Item* item = slide->first_item;
              item;
              item = item->next_item) {
@@ -98,10 +102,9 @@ update_and_render(Application* app, Render_Commands* render_commands) {
             switch (item->kind) {
                 case Slide_Item_Kind::TEXT: {
                     Text_Item* text_item = &item->text;
-                    push_text(&render_group, text_item->text,
-                              render_commands->default_font,
-                              item_window_pos, 48.0f, make_v2(7.0f, 10.0f),
-                              text_item->color);
+                    push_text(&render_group, &state->arena,
+                              text_item->text, font, item_window_pos,
+                              make_v2(3.0f, 10.0f), text_item->color);
                 } break;
             }
         }

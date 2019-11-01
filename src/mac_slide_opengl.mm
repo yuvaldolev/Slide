@@ -1,8 +1,5 @@
 #include <Cocoa/Cocoa.h>
 
-#include <ft2build.h>
-#include FT_FREETYPE_H
-
 #define GL_GLEXT_LEGACY
 #include <OpenGL/OpenGL.h>
 #include <OpenGL/gl.h>
@@ -19,6 +16,9 @@
 // TODO(yuval): Temporary! Find a way to use slide_assert.h
 // in the opengl renderer
 #define ASSERT(expression) if(!(expression)) {*(volatile int *)0 = 0;}
+
+#define INVALID_CODE_PATH(...) ASSERT(!"Invalid Code Path")
+#define INVALID_DEFAULT_CASE(...) default: {INVALID_CODE_PATH();} break
 
 #include "slide_platform.h"
 #include "slide_types.h"
@@ -124,12 +124,6 @@ RENDERER_END_FRAME(mac_opengl_end_frame) {
     [global_opengl_context flushBuffer];
 }
 
-RENDERER_ALLOCATE_TEXTURE(mac_opengl_allocate_texture) {
-    Renderer_Texture result =
-        opengl_allocate_texture((Opengl*)renderer, width, height, data);
-    return result;
-}
-
 internal Opengl*
 mac_init_opengl(NSWindow* window, Platform_Renderer_Limits* limits) {
     // NOTE(yuval): Pixel Format Choice
@@ -176,18 +170,22 @@ mac_init_opengl(NSWindow* window, Platform_Renderer_Limits* limits) {
     
     opengl->header.begin_frame = mac_opengl_begin_frame;
     opengl->header.end_frame = mac_opengl_end_frame;
-    opengl->header.allocate_texture = mac_opengl_allocate_texture;
+    
+    init_renderer_texture_queue(&opengl->header.texture_queue);
     
     u32 max_vertex_count = limits->max_quad_count_per_frame * 4;
     opengl->max_vertex_count = max_vertex_count;
     
     opengl->max_quad_texture_count = limits->max_quad_count_per_frame;
+    opengl->max_texture_handle_count = limits->max_texture_handles;
     
     opengl->vertex_array = (Textured_Vertex*)
         mac_renderer_alloc(max_vertex_count * sizeof(Textured_Vertex));
     opengl->bitmap_array = (Renderer_Texture*)
         mac_renderer_alloc(opengl->max_quad_texture_count *
                            sizeof(Renderer_Texture));
+    opengl->texture_handles = (GLuint*)
+        mac_renderer_alloc(opengl->max_texture_handle_count * sizeof(GLuint));
     
     // OpenGL Extension Loading
     void* image = dlopen(
