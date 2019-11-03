@@ -1,0 +1,49 @@
+﻿C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Microsoft\VC\v160\Microsoft.CppBuild.targets(438,5): warning MSB8004: Output Directory does not end with a trailing slash.  This build instance will add the slash as it is required to allow proper evaluation of the Output Directory.
+  autofit.c
+  ftbase.c
+  ftbbox.c
+  ftbdf.c
+  ftbitmap.c
+  ftcid.c
+  ftfstype.c
+  ftgasp.c
+  ftglyph.c
+  ftgxval.c
+  ftinit.c
+  ftmm.c
+  ftotval.c
+  ftpatent.c
+  ftpfr.c
+  ftstroke.c
+  ftsynth.c
+  ftsystem.c
+  fttype1.c
+  ftwinfnt.c
+  bdf.c
+  ftcache.c
+  cff.c
+  type1cid.c
+  ftgzip.c
+  ftlzw.c
+  pcf.c
+  pfr.c
+  psaux.c
+  pshinter.c
+  psmodule.c
+  raster.c
+  sfnt.c
+  smooth.c
+W:\projects\Slide\third_party\freetype-2.10.1\src\sfnt\ttcolr.c(127,50): warning C4018: '>': signed/unsigned mismatch (compiling source file ..\..\..\src\sfnt\sfnt.c)
+W:\projects\Slide\third_party\freetype-2.10.1\src\sfnt\ttcolr.c(136,40): warning C4018: '>': signed/unsigned mismatch (compiling source file ..\..\..\src\sfnt\sfnt.c)
+W:\projects\Slide\third_party\freetype-2.10.1\src\sfnt\ttcpal.c(121,40): warning C4018: '>': signed/unsigned mismatch (compiling source file ..\..\..\src\sfnt\sfnt.c)
+W:\projects\Slide\third_party\freetype-2.10.1\src\sfnt\ttcpal.c(153,50): warning C4018: '>': signed/unsigned mismatch (compiling source file ..\..\..\src\sfnt\sfnt.c)
+W:\projects\Slide\third_party\freetype-2.10.1\src\sfnt\ttcpal.c(174,50): warning C4018: '>': signed/unsigned mismatch (compiling source file ..\..\..\src\sfnt\sfnt.c)
+  truetype.c
+W:\projects\Slide\third_party\freetype-2.10.1\src\sfnt\ttcpal.c(195,57): warning C4018: '>': signed/unsigned mismatch (compiling source file ..\..\..\src\sfnt\sfnt.c)
+  type1.c
+  type42.c
+W:\projects\Slide\third_party\freetype-2.10.1\src\smooth\ftgrays.c(534): warning C4706: assignment within conditional expression
+  winfnt.c
+W:\projects\Slide\third_party\freetype-2.10.1\src\truetype\ttgxvar.c(2201): warning C4701: potentially uninitialized local variable 'fvar_head' used
+  ftdebug.c
+  freetype.vcxproj -> W:\projects\Slide\third_party\freetype-2.10.1\bin\lib\freetype.lib

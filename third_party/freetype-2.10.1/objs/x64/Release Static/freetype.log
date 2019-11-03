@@ -1,0 +1,72 @@
+﻿C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Microsoft\VC\v160\Microsoft.CppBuild.targets(438,5): warning MSB8004: Output Directory does not end with a trailing slash.  This build instance will add the slash as it is required to allow proper evaluation of the Output Directory.
+cl : command line warning D9002: ignoring unknown option '/arch:SSE2'
+  autofit.c
+cl : command line warning D9002: ignoring unknown option '/arch:SSE2'
+  ftbase.c
+cl : command line warning D9002: ignoring unknown option '/arch:SSE2'
+  ftbbox.c
+cl : command line warning D9002: ignoring unknown option '/arch:SSE2'
+  ftbdf.c
+  ftbitmap.c
+  ftcid.c
+  ftfstype.c
+  ftgasp.c
+  ftglyph.c
+  ftgxval.c
+  ftinit.c
+  ftmm.c
+  ftotval.c
+  ftpatent.c
+  ftpfr.c
+  ftstroke.c
+  ftsynth.c
+  ftsystem.c
+  fttype1.c
+  ftwinfnt.c
+  bdf.c
+  ftcache.c
+  cff.c
+  type1cid.c
+  ftgzip.c
+  ftlzw.c
+  pcf.c
+  pfr.c
+  psaux.c
+  pshinter.c
+  psmodule.c
+cl : command line warning D9002: ignoring unknown option '/arch:SSE2'
+  raster.c
+  sfnt.c
+  smooth.c
+W:\projects\Slide\third_party\freetype-2.10.1\src\psaux\psintrp.c(1005,29): warning C4267: '=': conversion from 'size_t' to 'FT_Fast', possible loss of data (compiling source file ..\..\..\src\psaux\psaux.c)
+W:\projects\Slide\third_party\freetype-2.10.1\src\sfnt\sfdriver.c(860,32): warning C4267: '=': conversion from 'size_t' to 'FT_UInt', possible loss of data (compiling source file ..\..\..\src\sfnt\sfnt.c)
+W:\projects\Slide\third_party\freetype-2.10.1\src\sfnt\sfdriver.c(1011,44): warning C4244: 'function': conversion from '__int64' to 'const unsigned int', possible loss of data (compiling source file ..\..\..\src\sfnt\sfnt.c)
+  truetype.c
+W:\projects\Slide\third_party\freetype-2.10.1\src\smooth\ftgrays.c(1704,26): warning C4267: '+=': conversion from 'size_t' to 'TCoord', possible loss of data (compiling source file ..\..\..\src\smooth\smooth.c)
+W:\projects\Slide\third_party\freetype-2.10.1\src\smooth\ftgrays.c(534): warning C4706: assignment within conditional expression
+W:\projects\Slide\third_party\freetype-2.10.1\src\sfnt\ttcolr.c(127,50): warning C4018: '>': signed/unsigned mismatch (compiling source file ..\..\..\src\sfnt\sfnt.c)
+W:\projects\Slide\third_party\freetype-2.10.1\src\sfnt\ttcolr.c(136,40): warning C4018: '>': signed/unsigned mismatch (compiling source file ..\..\..\src\sfnt\sfnt.c)
+W:\projects\Slide\third_party\freetype-2.10.1\src\sfnt\ttcpal.c(121,40): warning C4018: '>': signed/unsigned mismatch (compiling source file ..\..\..\src\sfnt\sfnt.c)
+W:\projects\Slide\third_party\freetype-2.10.1\src\sfnt\ttcpal.c(153,50): warning C4018: '>': signed/unsigned mismatch (compiling source file ..\..\..\src\sfnt\sfnt.c)
+W:\projects\Slide\third_party\freetype-2.10.1\src\sfnt\ttcpal.c(174,50): warning C4018: '>': signed/unsigned mismatch (compiling source file ..\..\..\src\sfnt\sfnt.c)
+  type1.c
+W:\projects\Slide\third_party\freetype-2.10.1\src\sfnt\ttcpal.c(195,57): warning C4018: '>': signed/unsigned mismatch (compiling source file ..\..\..\src\sfnt\sfnt.c)
+W:\projects\Slide\third_party\freetype-2.10.1\src\truetype\ttgload.c(1877,42): warning C4312: 'type cast': conversion from 'unsigned long' to 'void *' of greater size (compiling source file ..\..\..\src\truetype\truetype.c)
+W:\projects\Slide\third_party\freetype-2.10.1\src\type1\t1driver.c(277,51): warning C4267: '=': conversion from 'size_t' to 'FT_ULong', possible loss of data (compiling source file ..\..\..\src\type1\type1.c)
+W:\projects\Slide\third_party\freetype-2.10.1\src\type1\t1driver.c(298,58): warning C4267: '=': conversion from 'size_t' to 'FT_ULong', possible loss of data (compiling source file ..\..\..\src\type1\type1.c)
+W:\projects\Slide\third_party\freetype-2.10.1\src\type1\t1driver.c(330,65): warning C4267: '=': conversion from 'size_t' to 'FT_ULong', possible loss of data (compiling source file ..\..\..\src\type1\type1.c)
+W:\projects\Slide\third_party\freetype-2.10.1\src\type1\t1driver.c(360,23): warning C4267: '=': conversion from 'size_t' to 'FT_UInt', possible loss of data (compiling source file ..\..\..\src\type1\type1.c)
+W:\projects\Slide\third_party\freetype-2.10.1\src\type1\t1driver.c(569,59): warning C4267: '=': conversion from 'size_t' to 'FT_ULong', possible loss of data (compiling source file ..\..\..\src\type1\type1.c)
+W:\projects\Slide\third_party\freetype-2.10.1\src\type1\t1driver.c(578,58): warning C4267: '=': conversion from 'size_t' to 'FT_ULong', possible loss of data (compiling source file ..\..\..\src\type1\type1.c)
+W:\projects\Slide\third_party\freetype-2.10.1\src\type1\t1driver.c(587,61): warning C4267: '=': conversion from 'size_t' to 'FT_ULong', possible loss of data (compiling source file ..\..\..\src\type1\type1.c)
+W:\projects\Slide\third_party\freetype-2.10.1\src\type1\t1driver.c(596,63): warning C4267: '=': conversion from 'size_t' to 'FT_ULong', possible loss of data (compiling source file ..\..\..\src\type1\type1.c)
+W:\projects\Slide\third_party\freetype-2.10.1\src\type1\t1driver.c(606,58): warning C4267: '=': conversion from 'size_t' to 'FT_ULong', possible loss of data (compiling source file ..\..\..\src\type1\type1.c)
+W:\projects\Slide\third_party\freetype-2.10.1\src\type1\t1load.c(1737,68): warning C4244: '=': conversion from '__int64' to 'FT_Int', possible loss of data (compiling source file ..\..\..\src\type1\type1.c)
+  type42.c
+  winfnt.c
+W:\projects\Slide\third_party\freetype-2.10.1\src\type1\t1load.c(1907,40): warning C4244: '=': conversion from '__int64' to 'FT_Int', possible loss of data (compiling source file ..\..\..\src\type1\type1.c)
+W:\projects\Slide\third_party\freetype-2.10.1\src\truetype\ttgxvar.c(2201): warning C4701: potentially uninitialized local variable 'fvar_head' used
+W:\projects\Slide\third_party\freetype-2.10.1\src\type42\t42parse.c(832,66): warning C4244: '=': conversion from '__int64' to 'FT_Int', possible loss of data (compiling source file ..\..\..\src\type42\type42.c)
+  ftdebug.c
+cl : command line warning D9002: ignoring unknown option '/arch:SSE2'
+  freetype.vcxproj -> W:\projects\Slide\third_party\freetype-2.10.1\bin\lib\freetype.lib

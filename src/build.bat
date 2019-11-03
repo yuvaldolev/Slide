@@ -7,20 +7,20 @@ set linker_flags=-opt:ref -incremental:no
 
 REM Win32 Specific Compiler & Linker Flags
 set win32_compiler_flags=-DSLIDE_WIN32=1 -DSLIDE_MAC=0
-set win32_linker_flags=user32.lib gdi32.lib winmm.lib opengl32.lib
+set win32_linker_flags=user32.lib gdi32.lib kernel32.lib
 
 REM Compilation Setup
 IF NOT EXIST ..\.build mkdir ..\.build & attrib +h ..\.build /s /d
 pushd ..\.build
 
 REM Asset Builder Compilation
-cl %compiler_flags% ..\src\slide_asset_builder.cpp -Fe..\run_tree\slide_asset_builder
+REM cl %compiler_flags% ..\src\slide_asset_builder.cpp -Fe..\run_tree\slide_asset_builder
 
 REM Opengl Renderer Compilation
-cl  %compiler_flags% %win32_compiler_flags% ..\src\win32_slide_opengl.cpp -Fe..\run_tree\win32_slide_opengl -LD /link -incremental:no -opt:ref -EXPORT:win32_load_renderer gdi32.lib opengl32.lib user32.lib
+cl  %compiler_flags% %win32_compiler_flags% ..\src\win32_slide_opengl.cpp -Fe..\run_tree\win32_slide_opengl -LD /link -EXPORT:win32_load_renderer %linker_flags% %win32_linker_flags% opengl32.lib
 
 REM Win32 Platform Compilation
-cl %compiler_flags% %win32_compiler_flags% ..\src\win32_slide.cpp -Fe..\run_tree\win32_slide /link %linker_flags% %win32_linker_flags%
+cl %compiler_flags% %win32_compiler_flags% -I..\src\third_party\freetype2 ..\src\win32_slide.cpp -Fe..\run_tree\win32_slide /link %linker_flags% %win32_linker_flags% winmm.lib ..\third_party\freetype-2.10.1\bin\lib\freetype.lib
 
 REM Compilation Teardown
 popd

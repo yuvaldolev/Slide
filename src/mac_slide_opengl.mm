@@ -177,7 +177,7 @@ mac_init_opengl(NSWindow* window, Platform_Renderer_Limits* limits) {
     opengl->max_vertex_count = max_vertex_count;
     
     opengl->max_quad_texture_count = limits->max_quad_count_per_frame;
-    opengl->max_texture_handle_count = limits->max_texture_handles;
+    opengl->max_texture_handle_count = limits->max_texture_handle_count;
     
     opengl->vertex_array = (Textured_Vertex*)
         mac_renderer_alloc(max_vertex_count * sizeof(Textured_Vertex));

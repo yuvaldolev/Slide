@@ -152,6 +152,7 @@ main(int arg_count, char** args) {
         
         Platform_Renderer_Limits limits;
         limits.max_quad_count_per_frame = (1 << 18);
+        limits.max_texture_handle_count = 256;
         
         Platform_Renderer* renderer =
             mac_init_default_renderer(window, &limits);

@@ -91,7 +91,7 @@ update_and_render(Application* app, Render_Commands* render_commands) {
                   make_v3(0.0f, 0.0f, 0.0f), slide->background_color);
         
         Font* font = get_font_at_size("data/fonts", "KarminaBold.ttf",
-                                      128, &state->arena);
+                                      42, &state->arena);
         
         for (Slide_Item* item = slide->first_item;
              item;

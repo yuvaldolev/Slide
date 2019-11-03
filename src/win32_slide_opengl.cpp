@@ -56,6 +56,9 @@
 #define WGL_ALPHA_BITS_ARB                         0x201B
 #define WGL_DEPTH_BITS_ARB                         0x2022
 
+#define WGL_SAMPLE_BUFFERS_ARB                     0x2041
+#define WGL_SAMPLES_ARB                            0x2042
+
 typedef char GLchar;
 typedef ptrdiff_t GLsizeiptr;
 typedef ptrdiff_t GLintptr;
@@ -71,7 +74,7 @@ typedef void WINAPI Type_glCompileShader(GLuint shader);
 typedef GLuint WINAPI Type_glCreateProgram(void);
 typedef GLuint WINAPI Type_glCreateShader(GLenum type);
 typedef void WINAPI Type_glLinkProgram(GLuint program);
-typedef void WINAPI Type_glShaderSource(GLuint shader, GLsizei count, GLchar **string, GLint *length);
+typedef void WINAPI Type_glShaderSource(GLuint shader, GLsizei count, const GLchar **string, const GLint *length);
 typedef void WINAPI Type_glUseProgram(GLuint program);
 typedef void WINAPI Type_glGetProgramInfoLog(GLuint program, GLsizei bufSize, GLsizei *length, GLchar *infoLog);
 typedef void WINAPI Type_glGetShaderInfoLog(GLuint shader, GLsizei bufSize, GLsizei *length, GLchar *infoLog);
@@ -217,7 +220,8 @@ win32_set_pixel_format(Opengl* opengl, HDC window_dc) {
             WGL_SUPPORT_OPENGL_ARB, GL_TRUE, // 2
             WGL_DOUBLE_BUFFER_ARB, GL_TRUE, // 3
             WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB, // 4
-            0, GL_FALSE, // 5
+            WGL_SAMPLE_BUFFERS_ARB, GL_TRUE,
+            WGL_SAMPLES_ARB, 16,
             0,
         };
         
@@ -316,34 +320,32 @@ RENDERER_END_FRAME(win32_opengl_end_frame) {
     SwapBuffers(wglGetCurrentDC());
 }
 
-RENDERER_ALLOCATE_TEXTURE(win32_opengl_allocate_texture) {
-    Renderer_Texture result =
-        opengl_allocate_texture((Opengl*)renderer, width, height, data);
-    
-    return result;
-}
-
 internal Opengl*
 win32_init_opengl(HDC window_dc, Platform_Renderer_Limits* limits) {
     Opengl* opengl = (Opengl*)win32_renderer_alloc(sizeof(Opengl));
     
     opengl->header.begin_frame = win32_opengl_begin_frame;
     opengl->header.end_frame = win32_opengl_end_frame;
-    opengl->header.allocate_texture = win32_opengl_allocate_texture;
     
     win32_load_wgl_extensions(opengl);
     win32_set_pixel_format(opengl, window_dc);
+    
+    init_renderer_texture_queue(&opengl->header.texture_queue);
     
     u32 max_vertex_count = limits->max_quad_count_per_frame * 4;
     opengl->max_vertex_count = max_vertex_count;
     
     opengl->max_quad_texture_count = limits->max_quad_count_per_frame;
+    opengl->max_texture_handle_count = limits->max_texture_handle_count;
     
     opengl->vertex_array = (Textured_Vertex*)
         win32_renderer_alloc(max_vertex_count * sizeof(Textured_Vertex));
     opengl->bitmap_array = (Renderer_Texture*)
         win32_renderer_alloc(opengl->max_quad_texture_count *
                              sizeof(Renderer_Texture));
+    opengl->texture_handles = (GLuint*)
+        win32_renderer_alloc(opengl->max_texture_handle_count *
+                             sizeof(GLuint));
     
     b32 modern_context = true;
     HGLRC opengl_rc = 0;

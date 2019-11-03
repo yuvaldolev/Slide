@@ -1,5 +1,5 @@
 #define STB_TRUETYPE_IMPLEMENTATION
-#include "stb/stb_truetype.h"
+#include "third_party/stb/stb_truetype.h"
 
 #define YD_STRING_IMPLEMENTATION
 #include "yd/yd_string.h"

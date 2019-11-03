@@ -53,7 +53,7 @@ struct Renderer_Texture_Queue {
 
 struct Platform_Renderer_Limits {
     u32 max_quad_count_per_frame;
-    u32 max_texture_handles;
+    u32 max_texture_handle_count;
 };
 
 #define RENDERER_BEGIN_FRAME(name) Render_Commands* name(Platform_Renderer* renderer, Vector2u render_dim)
@@ -181,8 +181,8 @@ refer_to_texture(u32 index, u32 width, u32 height) {
     Renderer_Texture result;
     
     result.index = index;
-    result.width = width;
-    result.height = height;
+    result.width = (u16)width;
+    result.height = (u16)height;
     
     ASSERT(result.index == index);
     ASSERT(result.width  == width);

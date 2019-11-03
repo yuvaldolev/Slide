@@ -287,7 +287,7 @@ opengl_init_texture(Opengl* opengl, Renderer_Texture texture,
     GLuint handle = get_texture_handle_for(opengl, texture);
     glBindTexture(GL_TEXTURE_2D, handle);
     
-    GLenum format;
+    GLenum format = 0;
     switch (in_format) {
         case RGBA: {
             format = GL_RGBA;
@@ -304,7 +304,7 @@ opengl_init_texture(Opengl* opengl, Renderer_Texture texture,
         INVALID_DEFAULT_CASE();
     }
     
-    GLint internal_format;
+    GLint internal_format = 0;
     switch (out_format) {
         case RGBA: {
             internal_format = GL_RGBA8;
