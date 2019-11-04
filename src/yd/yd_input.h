@@ -1,4 +1,4 @@
-#if !defined(YD_MEMORY)
+#if !defined(YD_INPUT)
 
 #if !defined(YD_TYPES)
 #include <stdint.h>
@@ -72,10 +72,10 @@ namespace Event_Kind {
     enum Type {
         NONE,
         
-        KEYBOARD,
+        BUTTON,
         TEXT_INPUT,
-        WINDOW,
         MOUSE_WHEEL,
+        WINDOW,
         QUIT
     };
 }
@@ -92,7 +92,7 @@ namespace Key_State {
 }
 #endif // #if 0
 
-namespace Key_Code {
+namespace Button_Code {
     enum Type {
         UNKNOWN = 0,
         
@@ -107,7 +107,7 @@ namespace Key_Code {
         // NOTE(yuval): The letters A-Z live in here as well and may be returned
         // by keyboard events
         
-        DELETE = 127,
+        DEL = 127,
         
         ARROW_UP = 128,
         ARROW_DOWN = 129,
@@ -121,9 +121,9 @@ namespace Key_Code {
         MOUSE_WHEEL_UP,
         MOUSE_WHEEL_DOWN,
         
-        MOUSE_WHEEL_LEFT,
-        MOSUE_WHEEL_MIDDLE,
-        MOUSE_WHEEL_RIGHT,
+        MOUSE_BUTTON_LEFT,
+        MOSUE_BUTTON_MIDDLE,
+        MOUSE_BUTTON_RIGHT,
         
         F1,
         F2,
@@ -165,10 +165,10 @@ union Modifier_Flags {
     };
 };
 
-struct Keyboard_Event {
-    Key_Code::Type key_code;
-    yd_b32 key_press; // NOTE(yuval): If not pressed, it's a key release
-    yd_b32 repeat;
+struct Button_Event {
+    Button_Code::Type code;
+    yd_b32 pressed; // NOTE(yuval): If not pressed, it's a key release
+    yd_b32 repeated;
     Modifier_Flags modifier_flags;
 };
 
@@ -176,19 +176,19 @@ struct Text_Input_Event {
     yd_u32 utf32;
 };
 
-struct Mouse_Event {
-    yd_s32 typical_wheel_delta;
-    yd_s32 wheel_delta;
+struct Mouse_Wheel_Event {
+    yd_s32 typical_delta;
+    yd_s32 delta;
 };
 
 struct Event {
     Event_Kind::Type kind;
     
     union {
-        Keyboard_Event keyboard;
+        Button_Event button;
         Text_Input_Event text_input;
-        Mouse_Event mouse;
-    }
+        Mouse_Wheel_Event mouse_wheel;
+    };
 };
 
 struct Input {
@@ -211,7 +211,7 @@ struct Input {
     //
     
     // NOTE(yuval): True if pressed, false if not
-    yd_b32 button_states[Key_Code::COUNT];
+    yd_b32 button_states[Button_Code::COUNT];
     
     yd_b8 shift_state;
     yd_b8 ctrl_state;
@@ -222,8 +222,8 @@ struct Input {
 
 extern Input global_input;
 
-#define YD_MEMORY
-#endif // #if !defined(YD_MEMORY)
+#define YD_INPUT
+#endif // #if !defined(YD_INPUT)
 
 //
 // NOTE(yuval): YD Input Implementation
@@ -256,8 +256,121 @@ add_input_event(Event event) {
     global_input.frame_events[global_input.frame_event_count++] = event;
 }
 
+#if YD_WIN32
+yd_internal Button_Code::Type
+win32_get_button_code(WPARAM w_param) {
+    using namespace Button_Code;
+    
+    Button_Code::Type result;
+    
+    if ((w_param >= 48) && (w_param <= 90)) {
+        result = (Button_Code::Type)w_param;
+    } else if ((w_param >= VK_F1) && (w_param <= VK_F16)) {
+        WPARAM delta = (w_param - VK_F1);
+        result = (Button_Code::Type)(F1 + delta);
+    } else {
+        switch (w_param) {
+            case VK_BACK: { result = BACKSPACE; } break;
+            case VK_TAB: { result = TAB; } break;
+            case VK_RETURN: { result = ENTER; } break;
+            case VK_ESCAPE: { result =  ESCAPE; } break;
+            case VK_SPACE: { result = SPACEBAR; } break;
+            
+            case VK_OEM_1: { result = (Button_Code::Type)';'; };
+            case VK_OEM_2: { result = (Button_Code::Type)'/'; };
+            case VK_OEM_3: { result = (Button_Code::Type)'`'; };
+            case VK_OEM_4: { result = (Button_Code::Type)'['; };
+            case VK_OEM_5: { result = (Button_Code::Type)'\\'; };
+            case VK_OEM_6: { result = (Button_Code::Type)']'; };
+            case VK_OEM_7: { result = (Button_Code::Type)'\''; };
+            
+            case VK_OEM_PLUS: { result = (Button_Code::Type)'+'; };
+            case VK_OEM_MINUS: { result = (Button_Code::Type)'-'; };
+            case VK_OEM_PERIOD: { result = (Button_Code::Type)'.'; };
+            case VK_OEM_COMMA: { result = (Button_Code::Type)','; };
+            
+            case VK_DELETE: { result = DEL; } break;
+            
+            case VK_LEFT: { result = ARROW_LEFT; } break;
+            case VK_RIGHT: { result = ARROW_RIGHT; } break;
+            case VK_UP: { result = ARROW_UP; } break;
+            case VK_DOWN: { result = ARROW_DOWN; } break;
+            
+            case VK_MENU: { result = ALT; } break;
+            case VK_CONTROL: { result = CTRL; } break;
+            case VK_SHIFT: { result = SHIFT; } break;
+            
+            default: { result = UNKNOWN; };
+        }
+    }
+    
+    return result;
+}
+
+yd_internal yd_u64
+win32_get_vk(Button_Code::Type button) {
+    using namespace Button_Code;
+    
+    yd_u64 result;
+    
+    if ((button >= (Button_Code::Type)48) &&
+        (button <= (Button_Code::Type)90)) {
+        result = (yd_u64)button;
+    } else if ((button >= F1) && (button <= F16)) {
+        yd_u64 delta = (yd_u64)(button - F1);
+        result = (VK_F1 + delta);
+    } else if (button == ((Button_Code::Type)';')) {
+        result = VK_OEM_1;
+    } else if (button == ((Button_Code::Type)'/')) {
+        result = VK_OEM_2;
+    } else if (button == ((Button_Code::Type)'`')) {
+        result = VK_OEM_3;
+    } else if (button == ((Button_Code::Type)'[')) {
+        result = VK_OEM_4;
+    } else if (button == ((Button_Code::Type)'\\')) {
+        result = VK_OEM_5;
+    } else if (button == ((Button_Code::Type)']')) {
+        result = VK_OEM_6;
+    } else if (button == ((Button_Code::Type)'\'')) {
+        result = VK_OEM_7;
+    } else if (button == ((Button_Code::Type)'+')) {
+        result = VK_OEM_PLUS;
+    } else if (button == ((Button_Code::Type)'-')) {
+        result = VK_OEM_MINUS;
+    } else if (button == ((Button_Code::Type)'.')) {
+        result = VK_OEM_PERIOD;
+    } else if (button == ((Button_Code::Type)',')) {
+        result = VK_OEM_COMMA;
+    } else {
+        switch (button) {
+            case BACKSPACE: { result = VK_BACK; } break;
+            case TAB: { result = VK_TAB; } break;
+            case ENTER: { result = VK_RETURN; } break;
+            case ESCAPE: { result = VK_ESCAPE; } break;
+            case SPACEBAR: { result = VK_SPACE; } break;
+            
+            case DEL: { result = VK_DELETE; } break;
+            
+            case ARROW_LEFT: { result = VK_LEFT; } break;
+            case ARROW_RIGHT: { result = VK_RIGHT; } break;
+            case ARROW_UP: { result = VK_UP; } break;
+            case ARROW_DOWN: { result = VK_DOWN; } break;
+            
+            case ALT: { result = VK_MENU; } break;
+            case CTRL: { result = VK_CONTROL; } break;
+            case SHIFT: { result = VK_SHIFT; } break;
+            
+            default: { result = 0; } break;
+        }
+    }
+    
+    return result;
+}
+
+// TODO(yuval): Can't I create a cross-platform version of this function?
+// (using the event's button code)
 yd_internal void
-update_modifier_key_states(WPARAM w_param, b32 is_pressed) {
+win32_update_modifier_key_states(WPARAM w_param, yd_b8 is_pressed) {
     switch (w_param) {
         case VK_SHIFT: {
             global_input.shift_state = is_pressed;
@@ -272,6 +385,7 @@ update_modifier_key_states(WPARAM w_param, b32 is_pressed) {
         } break;
     }
 }
+#endif // #if YD_WIN32
 
 //
 // NOTE(yuval): Exported Function Implementations
@@ -288,8 +402,8 @@ update_window_events() {
 }
 
 LRESULT CALLBACK
-yd_input_window_callback(HWND window, UINT message,
-                         WPARAM w_param, LPARAM l_param) {
+yd_input_window_proc(HWND window, UINT message,
+                     WPARAM w_param, LPARAM l_param) {
     LRESULT result = 0;
     
     switch (message) {
@@ -300,46 +414,46 @@ yd_input_window_callback(HWND window, UINT message,
         case WM_SYSKEYDOWN:
         case WM_KEYDOWN: {
             Event event = {};
-            event.kind = Event_Kind::KEYBOARD;
-            event.keyboard.key_code = win32_get_key_code(w_param);
-            event.keyboard.key_press = true;
-            event.repeat = (message & (1 << 30));
-            event.keyboard.modifier_flags.shift_pressed =
+            event.kind = Event_Kind::BUTTON;
+            event.button.code = win32_get_button_code(w_param);
+            event.button.pressed = true;
+            event.button.repeated = (message & (1 << 30));
+            event.button.modifier_flags.shift_pressed =
                 global_input.shift_state;
-            event.keyboard.modifier_flags.ctrl_pressed =
+            event.button.modifier_flags.ctrl_pressed =
                 global_input.ctrl_state;
-            event.keyboard.modifier_flags.alt_pressed =
+            event.button.modifier_flags.alt_pressed =
                 global_input.alt_state;
             
-            global_input.button_states[event.keyboard.key_code] = true;
+            global_input.button_states[event.button.code] = true;
             
             add_input_event(event);
             
-            update_modifier_key_states(w_param, true);
+            win32_update_modifier_key_states(w_param, true);
         } break;
         
         case WM_SYSKEYUP:
         case WM_KEYUP: {
             Event event = {};
-            event.kind = Event_Kind::KEYBOARD;
-            event.keyboard.key_code = win32_get_key_code(w_param);
-            event.keyboard.key_press = false;
-            event.keyboard.modifier_flags.shift_pressed =
+            event.kind = Event_Kind::BUTTON;
+            event.button.code = win32_get_button_code(w_param);
+            event.button.pressed = false;
+            event.button.modifier_flags.shift_pressed =
                 global_input.shift_state;
-            event.keyboard.modifier_flags.ctrl_pressed =
-                glogal_input.ctrl_state;
-            event.keyboard.modifier_flags.alt_pressed =
+            event.button.modifier_flags.ctrl_pressed =
+                global_input.ctrl_state;
+            event.button.modifier_flags.alt_pressed =
                 global_input.alt_state;
             
-            global_input.button_states[event.keyboard.key_code] = false;
+            global_input.button_states[event.button.code] = false;
             
             add_input_event(event);
             
-            update_modifier_key_states(w_param, false);
+            win32_update_modifier_key_states(w_param, false);
         } break;
         
-        case WM_CHAR {
-            yd_u32 keycode = (u32)w_param;
+        case WM_CHAR: {
+            yd_u32 keycode = (yd_u32)w_param;
             
             // NOTE(yuval): Control characters generate keycodes < 32,
             // but these are redundant with KEYDOWN events and also ambiguous
@@ -362,12 +476,95 @@ yd_input_window_callback(HWND window, UINT message,
         } break;
         
         case WM_PAINT: {
-            VaildateRect(window, null);
+            ValidateRect(window, 0);
             result = DefWindowProcA(window, message, w_param, l_param);
         } break;
         
-        case WM_LBUTTONDOWN
+        
+        case WM_LBUTTONDOWN:
+        case WM_LBUTTONUP: {
+            Event event = {};
+            event.kind = Event_Kind::BUTTON;
+            event.button.code = Button_Code::MOUSE_BUTTON_LEFT;
+            
+            yd_b32 pressed;
+            if (message == WM_LBUTTONDOWN) {
+                pressed = true;
+                
+                SetCapture(window);
+            } else {
+                pressed = false;
+                
+                ReleaseCapture();
+            }
+            
+            event.button.pressed = pressed;
+            
+            global_input.button_states[event.button.code] = pressed;
+            
+            add_input_event(event);
+        } break;
+        
+        case WM_RBUTTONDOWN:
+        case WM_RBUTTONUP: {
+            Event event;
+            event.kind = Event_Kind::BUTTON;
+            event.button.code = Button_Code::MOUSE_BUTTON_RIGHT;
+            
+            yd_b32 pressed = false;
+            if (message == WM_RBUTTONDOWN) {
+                pressed = true;
+            }
+            
+            event.button.pressed = pressed;
+            
+            global_input.button_states[event.button.code] = pressed;
+            
+            add_input_event(event);
+        } break;
+        
+        case WM_MOUSEMOVE: {
+            // TODO(yuval): Implement a mouse move event
+            result = DefWindowProcA(window, message, w_param, l_param);
+        } break;
+        
+        case WM_MOUSEWHEEL: {
+            Event event = {};
+            event.kind = Event_Kind::MOUSE_WHEEL;
+            event.mouse_wheel.typical_delta = WHEEL_DELTA;
+            event.mouse_wheel.delta = (yd_s32)(w_param >> 16);
+            
+            global_input.mouse_delta_z += event.mouse_wheel.delta;
+            
+            add_input_event(event);
+        } break;
+        
+        case WM_CLOSE:
+        case WM_QUIT: {
+            Event event = {};
+            event.kind = Event_Kind::QUIT;
+            
+            add_input_event(event);
+            
+            result = DefWindowProcA(window, message, w_param, l_param);
+        } break;
+        
+        case WM_SIZE: {
+            // TODO(yuval): Handle WM_SIZE
+            result = DefWindowProcA(window, message, w_param, l_param);
+        } break;
+        
+        case WM_EXITSIZEMOVE: {
+            // TODO(yuval): Handle WM_EXITSIZEMOVE
+            result = DefWindowProcA(window, message, w_param, l_param);
+        } break;
+        
+        default: {
+            result = DefWindowProcA(window, message, w_param, l_param);
+        }
     }
+    
+    return result;
 }
 #elif YD_MACOS
 void

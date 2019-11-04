@@ -32,6 +32,8 @@ typedef int8_t yd_s8;
 typedef int16_t yd_s16;
 typedef int32_t yd_s32;
 typedef int64_t yd_s64;
+
+typedef yd_s8 yd_b8;
 typedef yd_s32 yd_b32;
 
 typedef uint8_t yd_u8;
@@ -74,16 +76,6 @@ typedef uintptr_t yd_umm;
 #  define YD_LINUX 0
 # endif // # if defined(__linux__)
 #endif // #if !defined(YD_LINUX)
-
-//
-// NOTE(yuval): Platform-Specific Includes
-//
-
-#if YD_WIN32
-# include <windows.h>
-#elif YD_MACOS || YD_LINUX
-# include <sys/mman.h>
-#endif // #if YD_WIN32
 
 //
 // NOTE(yuval): Utility Macros
@@ -394,11 +386,21 @@ YD_OFFSET_OF(type, member), \
 #define YD_MEMORY
 #endif // #if !defined(YD_MEMORY)
 
+#if defined(YD_MEMORY_IMPLEMENTATION)
+
+//
+// NOTE(yuval): Platform-Specific Includes
+//
+
+#if YD_WIN32
+# include <windows.h>
+#elif YD_MACOS || YD_LINUX
+# include <sys/mman.h>
+#endif // #if YD_WIN32
+
 //
 // NOTE(yuval): Exported Function Implementations
 //
-
-#if defined(YD_MEMORY_IMPLEMENTATION)
 
 //
 // NOTE(yuval): Memory Allocation & Deallocation

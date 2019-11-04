@@ -1,3 +1,6 @@
+#define YD_INPUT_IMPLEMENTATION
+#include "yd/yd_input.h"
+
 #include "slide.cpp"
 
 #include <windows.h>
