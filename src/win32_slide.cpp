@@ -114,11 +114,20 @@ win32_main_window_callback(HWND window, UINT message,
             global_running = false;
         } break;
         
-        case WM_SYSKEYDOWN:
+        /*case WM_SYSKEYDOWN:
         case WM_SYSKEYUP:
         case WM_KEYDOWN:
         case WM_KEYUP: {
             ASSERT(!"Keyboard input came in through a non-dispatch message!");
+        } break;
+        */
+        
+        case WM_KEYDOWN: {
+            OutputDebugStringA("Message came through WM_KEYDOWN\n");
+        } break;
+        
+        case WM_CHAR: {
+            OutputDebugStringA("Message came through WM_CHAR\n");
         } break;
         
         case WM_PAINT: {
