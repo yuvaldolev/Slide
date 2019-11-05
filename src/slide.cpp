@@ -39,7 +39,7 @@ make_text_item(Memory_Arena* arena,
 Platform_Api platform;
 
 internal void
-update_and_render(Application* app, Render_Commands* render_commands) {
+update_and_render(Application* app, Render_Commands* render_commands, Input* input) {
     platform = app->platform_api;
     
     App_State* state = app->state;

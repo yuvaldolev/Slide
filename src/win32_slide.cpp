@@ -1,11 +1,11 @@
-#define YD_INPUT_IMPLEMENTATION
-#include "yd/yd_input.h"
-
 #include "slide.cpp"
 
 #include <windows.h>
 
 #include "win32_slide_renderer.h"
+
+#define YD_INPUT_IMPLEMENTATION
+#include "yd/yd_input.h"
 
 global b32 global_running;
 
@@ -86,67 +86,6 @@ win32_get_window_dimensions(HWND window) {
     return result;
 }
 
-internal LRESULT CALLBACK
-win32_main_window_callback(HWND window, UINT message,
-                           WPARAM w_param, LPARAM l_param) {
-    LRESULT result = 0;
-    
-    switch (message) {
-        case WM_CLOSE: {
-            global_running = false;
-        } break;
-        /*
-        case WM_WINDOWPOSCHANGING: {
-        
-        } break;
-        
-        case WM_WINDOWPOSCHANGED: {
-        
-        } break;
-        
-        case WM_SETCURSOR: {
-        
-        } break;
-        
-        case WM_ACTIVEAPP: {
-        
-        } break;
-        */
-        
-        case WM_DESTROY: {
-            global_running = false;
-        } break;
-        
-        /*case WM_SYSKEYDOWN:
-        case WM_SYSKEYUP:
-        case WM_KEYDOWN:
-        case WM_KEYUP: {
-            ASSERT(!"Keyboard input came in through a non-dispatch message!");
-        } break;
-        */
-        
-        case WM_KEYDOWN: {
-            OutputDebugStringA("Message came through WM_KEYDOWN\n");
-        } break;
-        
-        case WM_CHAR: {
-            OutputDebugStringA("Message came through WM_CHAR\n");
-        } break;
-        
-        case WM_PAINT: {
-            PAINTSTRUCT paint;
-            HDC device_context = BeginPaint(window, &paint);
-            EndPaint(window, &paint);
-        } break;
-        
-        default: {
-            result = DefWindowProcA(window, message, w_param, l_param);
-        } break;
-    }
-    
-    return result;
-}
-
 s32 WINAPI
 WinMain(HINSTANCE instance,
         HINSTANCE prev_instance,
@@ -154,7 +93,7 @@ WinMain(HINSTANCE instance,
         s32 show_code) {
     WNDCLASSA window_class = {};
     window_class.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
-    window_class.lpfnWndProc = win32_main_window_callback;
+    window_class.lpfnWndProc = yd_input_window_proc;
     window_class.hInstance = instance;
     window_class.hCursor = LoadCursor(0, IDC_ARROW);
     window_class.hbrBackground = (HBRUSH)(GetStockObject(BLACK_BRUSH));
@@ -205,21 +144,22 @@ WinMain(HINSTANCE instance,
                 Render_Commands* frame =
                     renderer->begin_frame(renderer, dimensions);
                 
-                MSG message;
-                while (PeekMessageA(&message, 0, 0, 0, PM_REMOVE)) {
-                    switch (message.message) {
-                        case WM_QUIT: {
+                update_window_events();
+                
+                // NOTE(yuval): Platform Input Event Processing
+                for (umm event_index = 0;
+                     event_index < global_input.platform_frame_event_count;
+                     ++event_index) {
+                    Event* event = &global_input.platform_frame_events[event_index];
+                    
+                    switch (event->kind) {
+                        case Event_Kind::QUIT: {
                             global_running = false;
-                        } break;
-                        
-                        default: {
-                            TranslateMessage(&message);
-                            DispatchMessageA(&message);
-                        } break;
+                        }
                     }
                 }
                 
-                update_and_render(&app, frame);
+                update_and_render(&app, frame, &global_input);
                 
                 renderer->end_frame(renderer, frame);
             }

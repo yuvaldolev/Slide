@@ -5,6 +5,7 @@
 
 #include "yd/yd_string.h"
 #include "yd/yd_memory.h"
+#include "yd/yd_input.h"
 
 #include "slide_platform.h"
 #include "slide_assert.h"

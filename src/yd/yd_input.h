@@ -196,10 +196,18 @@ struct Input {
     // NOTE(yuval): Per-frame Input Data
     //
     
-    // TODO(yuval): Replace this with a dynamic array of some sort
+    // TODO(yuval): Replace the event arrays with dynamic arrays of some sort
     // (preferably a bucket array)
-    Event frame_events[1024];
-    yd_umm frame_event_count;
+    
+    // NOTE(yuval): App Frame Events Include:
+    // BUTTON, TEXT_INPUT, MOUSE_WHEEL
+    Event app_frame_events[1024];
+    yd_umm app_frame_event_count;
+    
+    // NOTE(yuval): Platform Frame Events Include:
+    // WINDOW, QUIT
+    Event platform_frame_events[1024];
+    yd_umm platform_frame_event_count;
     
     // TODO(yuval): Compress this to a Vector3
     yd_s32 mouse_delta_x;
@@ -209,7 +217,6 @@ struct Input {
     //
     // NOTE(yuval): Persistant Input Data
     //
-    
     // NOTE(yuval): True if pressed, false if not
     yd_b32 button_states[Button_Code::COUNT];
     
@@ -242,7 +249,7 @@ extern Input global_input;
 #endif // #if YD_WIN32
 
 //
-// NOTE(yuval): Exported variable instantiations
+// NOTE(yuval): Exported Variable Instantiations
 //
 
 Input global_input = {};
@@ -252,8 +259,15 @@ Input global_input = {};
 //
 
 yd_internal inline void
-add_input_event(Event event) {
-    global_input.frame_events[global_input.frame_event_count++] = event;
+add_app_input_event(Event event) {
+    global_input.app_frame_events
+        [global_input.app_frame_event_count++] = event;
+}
+
+yd_internal inline void
+add_platform_input_event(Event event) {
+    global_input.platform_frame_events
+        [global_input.platform_frame_event_count++] = event;
 }
 
 #if YD_WIN32
@@ -394,6 +408,12 @@ win32_update_modifier_key_states(WPARAM w_param, yd_b8 is_pressed) {
 #if YD_WIN32
 void
 update_window_events() {
+    global_input.app_frame_event_count = 0;
+    global_input.platform_frame_event_count = 0;
+    global_input.mouse_delta_x = 0;
+    global_input.mouse_delta_y = 0;
+    global_input.mouse_delta_z = 0;
+    
     MSG message;
     while (PeekMessageA(&message, 0, 0, 0, PM_REMOVE)) {
         TranslateMessage(&message);
@@ -408,7 +428,36 @@ yd_input_window_proc(HWND window, UINT message,
     
     switch (message) {
         case WM_ACTIVATEAPP: {
-            // TODO(yuval): Update the key_state array to the current key states
+            for (yd_umm button_index = 0;
+                 button_index < Button_Code::COUNT;
+                 ++button_index) {
+                Button_Code::Type button_code = (Button_Code::Type)button_index;
+                yd_u64 vk = win32_get_vk(button_code);
+                
+                if (vk != 0) {
+                    SHORT state = GetKeyState((yd_s32)vk);
+                    if (!(state & 0x8000)) {
+                        Event event = {};
+                        event.kind = Event_Kind::BUTTON;
+                        event.button.code = button_code;
+                        event.button.pressed = false;
+                        event.button.modifier_flags.shift_pressed =
+                            global_input.shift_state;
+                        event.button.modifier_flags.ctrl_pressed =
+                            global_input.ctrl_state;
+                        event.button.modifier_flags.alt_pressed =
+                            global_input.alt_state;
+                        
+                        add_app_input_event(event);
+                        
+                        global_input.button_states[button_index] = false;
+                        
+                        win32_update_modifier_key_states(vk, false);
+                    }
+                }
+            }
+            
+            result = DefWindowProcA(window, message, w_param, l_param);
         } break;
         
         case WM_SYSKEYDOWN:
@@ -425,9 +474,9 @@ yd_input_window_proc(HWND window, UINT message,
             event.button.modifier_flags.alt_pressed =
                 global_input.alt_state;
             
-            global_input.button_states[event.button.code] = true;
+            add_app_input_event(event);
             
-            add_input_event(event);
+            global_input.button_states[event.button.code] = true;
             
             win32_update_modifier_key_states(w_param, true);
         } break;
@@ -445,9 +494,9 @@ yd_input_window_proc(HWND window, UINT message,
             event.button.modifier_flags.alt_pressed =
                 global_input.alt_state;
             
-            global_input.button_states[event.button.code] = false;
+            add_app_input_event(event);
             
-            add_input_event(event);
+            global_input.button_states[event.button.code] = false;
             
             win32_update_modifier_key_states(w_param, false);
         } break;
@@ -463,7 +512,7 @@ yd_input_window_proc(HWND window, UINT message,
                 event.kind = Event_Kind::TEXT_INPUT;
                 event.text_input.utf32 = keycode;
                 
-                add_input_event(event);
+                add_app_input_event(event);
             }
         } break;
         
@@ -497,12 +546,11 @@ yd_input_window_proc(HWND window, UINT message,
                 
                 ReleaseCapture();
             }
-            
             event.button.pressed = pressed;
             
-            global_input.button_states[event.button.code] = pressed;
+            add_app_input_event(event);
             
-            add_input_event(event);
+            global_input.button_states[event.button.code] = pressed;
         } break;
         
         case WM_RBUTTONDOWN:
@@ -515,12 +563,11 @@ yd_input_window_proc(HWND window, UINT message,
             if (message == WM_RBUTTONDOWN) {
                 pressed = true;
             }
-            
             event.button.pressed = pressed;
             
-            global_input.button_states[event.button.code] = pressed;
+            add_app_input_event(event);
             
-            add_input_event(event);
+            global_input.button_states[event.button.code] = pressed;
         } break;
         
         case WM_MOUSEMOVE: {
@@ -534,9 +581,9 @@ yd_input_window_proc(HWND window, UINT message,
             event.mouse_wheel.typical_delta = WHEEL_DELTA;
             event.mouse_wheel.delta = (yd_s32)(w_param >> 16);
             
-            global_input.mouse_delta_z += event.mouse_wheel.delta;
+            add_app_input_event(event);
             
-            add_input_event(event);
+            global_input.mouse_delta_z += event.mouse_wheel.delta;
         } break;
         
         case WM_CLOSE:
@@ -544,7 +591,7 @@ yd_input_window_proc(HWND window, UINT message,
             Event event = {};
             event.kind = Event_Kind::QUIT;
             
-            add_input_event(event);
+            add_platform_input_event(event);
             
             result = DefWindowProcA(window, message, w_param, l_param);
         } break;
