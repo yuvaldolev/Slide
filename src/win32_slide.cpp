@@ -116,6 +116,8 @@ WinMain(HINSTANCE instance,
         if (window) {
             Application app = {};
             
+            app.context = context;
+            
             // NOTE(yuval): Platform API Functions
             app.platform_api.display_message_box =
                 win32_display_message_box;

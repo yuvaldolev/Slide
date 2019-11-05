@@ -1,10 +1,13 @@
 #include "slide.h"
 
-#define YD_STRING_IMPLEMENTATION
-#include "yd/yd_string.h"
-
 #define YD_MEMORY_IMPLEMENTATION
 #include "yd/yd_memory.h"
+
+#define YD_CONTEXT_IMPLEMENTATION
+#include "yd/yd_context.h"
+
+#define YD_STRING_IMPLEMENTATION
+#include "yd/yd_string.h"
 
 #include "slide_math.cpp"
 
@@ -46,13 +49,17 @@ update_and_render(Application* app, Render_Commands* render_commands, Input* inp
     if (!state) {
         state = app->state = BOOTSTRAP_PUSH_STRUCT(App_State, arena);
         
+        Context new_context = {};
+        new_context.memory_arena = state->memory_arena;
+        PUSH_CONTEXT(new_context);
+        
         Slideshow* slideshow = &state->slideshow;
         
         Slide* slide1 = PUSH_STRUCT(&state->arena, Slide);
         slide1->background_color = make_v4(0.5f, 0.03f, 0.06f, 1.0f);
         
         Slide_Item* slide1_text =
-            make_text_item(&state->arena, BUNDLE_LITERAL("Hello World, Program"));
+            make_text_item(&state->arena, BUNDLE_LITERAL("Hello, Friend."));
         slide1->first_item = slide1_text;
         
         slideshow->first_slide = slide1;
@@ -62,18 +69,34 @@ update_and_render(Application* app, Render_Commands* render_commands, Input* inp
         slide2->prev_slide = slide1;
         slide1->next_slide = slide2;
         
+        Slide_Item* slide2_text =
+            make_text_item(&state->arena, BUNDLE_LITERAL("What i'm about to tell you is top secret."));
+        slide2->first_item = slide2_text;
+        
         Slide* slide3 = PUSH_STRUCT(&state->arena, Slide);
         slide3->background_color = make_v4(0.03f, 0.06f, 0.5f, 1.0f);
         slide3->prev_slide = slide2;
         slide2->next_slide = slide3;
+        
+        Slide_Item* slide3_text =
+            make_text_item(&state->arena, BUNDLE_LITERAL("A conspiracy bigger than all of us."));
+        slide3->first_item = slide1_text;
         
         Slide* slide4 = PUSH_STRUCT(&state->arena, Slide);
         slide4->background_color = make_v4(0.4f, 0.03f, 0.5f, 1.0f);
         slide4->prev_slide = slide3;
         slide3->next_slide = slide4;
         
+        Slide_Item* slide4_text =
+            make_text_item(&state->arena, BUNDLE_LITERAL("There's a powerful group of people out there that are secretly running the world."));
+        slide4->first_item = slide1_text;
+        
         slideshow->current_slide = slide1;
     }
+    
+    Context new_context = {};
+    new_context.memory_arena = state->memory_arena;
+    PUSH_CONTEXT(new_context);
     
     Render_Group render_group =
         begin_render_group(render_commands);
@@ -115,5 +138,4 @@ update_and_render(Application* app, Render_Commands* render_commands, Input* inp
 #endif // #if 0
     }
     end_render_group(&render_group);
-    
 }

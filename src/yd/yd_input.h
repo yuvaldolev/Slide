@@ -68,6 +68,7 @@ typedef uintptr_t yd_umm;
 //
 // NOTE(yuval): Type Definitions
 //
+
 namespace Event_Kind {
     enum Type {
         NONE,
@@ -226,6 +227,10 @@ struct Input {
     
     yd_b32 application_has_focus;
 };
+
+//
+// NOTE(yuval): Exported Variable Declarations
+//
 
 extern Input global_input;
 

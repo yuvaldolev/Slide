@@ -4,8 +4,7 @@ global FT_Library global_ft_library = 0;
 global Loaded_Font* global_first_loaded_font;
 
 internal Font_Glyph*
-get_font_glyph(Render_Commands* commands, Font* font,
-               u8 character, Memory_Arena* arena) {
+get_font_glyph(Render_Commands* commands, Font* font, u8 character) {
     Font_Glyph* result = &font->glyphs[character];
     
     if (!is_valid_texture(result->texture)) {
@@ -19,7 +18,7 @@ get_font_glyph(Render_Commands* commands, Font* font,
             texture_queue_add_entry(commands->texture_queue, *texture,
                                     Renderer_Texture_Format::RED,
                                     Renderer_Texture_Format::RED,
-                                    PUSH_COPY(arena, glyph->bitmap.buffer,
+                                    PUSH_COPY(context->arena, glyph->bitmap.buffer,
                                               texture->width * texture->height));
             
             result->bearing = make_v2((f32)glyph->bitmap_left,

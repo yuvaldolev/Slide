@@ -29,106 +29,93 @@ typedef uintptr_t yd_umm;
 #define YD_TYPES
 #endif // #if !defined(YD_TYPES)
 
-#if !defined(YDAssert)
-# define YDAssert(Expression) if (!(Expression)) { *(volatile int*)0 = 0; }
-#endif // #if !defined(YDAssert)
+//
+// NOTE(yuval): Utility Macros
+//
 
-#if !defined(YDDoJoin2)
-# define YDDoJoin2(Arg1, Arg2) Arg1 ## Arg2
-#endif // #if !defined(YDDoJoin2)
+#if !defined(YD_ASSERT)
+# define YD_ASSERT(expression) if (!(expression)) { *(volatile int*)0 = 0; }
+#endif // #if !defined(YD_ASSERT)
 
-#if !defined(YDJoin2)
-# define YDJoin2(Arg1, Arg2) YDDoJoin2(Arg1, Arg2)
-#endif // #if !defined(YDJoin2)
+//
+// NOTE(yuval): Type Definitions
+//
 
-#if !defined(YDJoin3)
-# define YDJoin3(Arg1, Arg2, Arg3) YDJoin2(YDJoin2(Arg1, Arg2), Arg3)
-#endif // #if !defined(YDJoin3)
-
-#if !defined(YDJoin4)
-# define YDJoin4(Arg1, Arg2, Arg3, Arg4) YDJoin2(YDJoin3(Arg1, Arg2, Arg3), Arg4)
-#endif // #if !defined(YDJoin4)
-
-template <class t>
-struct bucket
+template <typename T>
+struct Bucket
 {
-    t* Data;
-    yd_umm Count;
-    yd_umm Capacity;
+    T* data;
+    yd_umm count;
+    yd_umm capacity;
     
-    bucket<t>* Next;
+    Bucket<T>* next;
 };
 
-template <class t>
-struct bucket_array
-{
-    bucket<t>* Head;
-    bucket<t>* Tail;
+template <typename T>
+struct Bucket_Array {
+    Bucket<T>* head;
+    Bucket<T>* tail;
     
-    yd_umm ItemsPerBucket;
-    yd_umm Count;
+    Bucket<T>* unfull_bucket_list;
     
-    memory_arena* MemoryArena;
+    yd_umm items_per_bucket;
+    yd_umm count;
     
-    inline t& operator[](yd_umm Index)
+    Memory_Arena* memory_arena;
+    
+    inline t& operator[](yd_umm index)
     {
-        YDAssert((Index >= 0) && (Index > Count));
+        YD_ASSERT((index >= 0) && (index < Count));
         
-        bucket<t>* CurrBucket = Head;
-        while ((Index > ItemsPerBucket) && CurrBucket)
+        Bucket<t>* curr_bucket = head;
+        while ((index >= items_per_bucket) && curr_bucket)
         {
-            CurrBucket = CurrBucket->Next;
-            Index -= ItemsPerBucket;
+            curr_bucket = curr_bucket->xext;
+            index -= items_per_bucket;
         }
         
-        return CurrBucket->Data[Index];
+        YD_ASSERT(curr_bucket);
+        
+        return curr_bucket->data[index];
     }
 };
-
-//
-// NOTE(yuval): Bucket Array Foreach
-//
-
-#if !defined(BucketArrayFor)
-# define BucketArrayFor(Array) \
-for (umm Index = 0, For__ShouldBreak = 0, For__ShouldContinue = 0; \
-!For__ShouldBreak; \
-For__ShouldBreak = 1) \
-for (auto YDJoin2(Bucket, __LINE__) = Array.Head; \
-YDJoin2(Bucket, __LINE__) && !For__ShouldBreak; \
-YDJoin2(Bucket, __LINE__) = YDJoin2(Bucket, __LINE__)->Next) \
-for (umm YDJoin2(ItemIndex, __LINE__) = 0, Join2(B, __LINE__) = 1; \
-(YDJoin2(ItemIndex, __LINE__) < YDJoin2(Bucket, __LINE__)->Count) && !For__ShouldBreak; \
-++YDJoin2(ItemIndex, __LINE__), ++Index, Join2(B, __LINE__) = true) \
-for (auto& It = YDJoin2(Bucket, __LINE__)->Data[YDJoin2(ItemIndex, __LINE__)]; \
-Join2(B, __LINE__); \
-Join2(B, __LINE__) = false)
-#endif // #if !defined(BucketArrayFor)
-
-#if !defined(BucketArrayBreak)
-# define BucketArrayBreak For__ShouldBreak = 1
-#endif // #if !defined(BucketArrayBreak)
 
 //
 // NOTE(yuval): Public API Inline Functions
 //
 
-template <class t>
-yd_internal inline bucket_array<t>
-MakeBucketArray(yd_umm ItemsPerBucket = 0, memory_arena* Arena = 0)
+template <typename T>
+yd_internal inline
+bucket_array_init(Bucket_Array<T>* array,
+                  yd_umm ItemsPerBucket = 0, memory_arena* Arena = 0) {
+    a
+}
+
+template <typename T>
+yd_internal inline Bucket_Array<T>
+make_bucket_array(yd_umm ItemsPerBucket = 0, memory_arena* Arena = 0)
 {
-    bucket_array<t> Result;
-    Result.Head = 0;
-    Result.Tail = 0;
-    Result.ItemsPerBucket = ItemsPerBucket;
-    Result.Count = 0;
-    Result.MemoryArena = Arena;
+    Bucket_Array<T> result;
+    result.head = 0;
+    result.tail = 0;
+    result.items_per_bucket = items_per_bucket;
+    result.count = 0;
+    result.MemoryArena = Arena;
     
     return Result;
 }
 
-template <class t>
-yd_internal inline void
+#define YD_BUCKET_ARRAY
+#endif // #if !defined(YD_BUCKET_ARRAY)
+
+//
+// NOTE(yuval): YD Bucket Array Implementation
+//
+
+#if defined(YD_BUCKET_ARRAY_IMPLEMENTATION)
+
+template <typename T>
+void
 BucketArrayAdd(bucket_array<t>* Array, t Value)
 {
     bucket<t>* Tail = Array->Tail;
@@ -169,4 +156,4 @@ BucketArrayAdd(bucket_array<t>* Array, t Value)
     ++Array->Count;
 }
 
-#endif // #if !defined(YD_BUCKET_ARRAY)
+#endif // #if defined(YD_BUCKET_ARRAY_IMPLEMENTATION)
