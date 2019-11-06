@@ -154,18 +154,12 @@ void replace(String* str, String to_replace, String with);
 void string_interpret_escapes(char* dest, String source);
 
 #if defined(YD_MEMORY)
-char* push_z(Memory_Arena* arena, yd_umm count,
-             Arena_Push_Params params = default_arena_params());
-String push_string(Memory_Arena* arena, yd_umm capacity,
-                   Arena_Push_Params params = default_arena_params());
-char* push_copy_z(Memory_Arena* arena, const char* source,
-                  Arena_Push_Params params = default_arena_params());
-String push_copy_string(Memory_Arena* arena, const char* source,
-                        Arena_Push_Params params = default_arena_params());
-char* push_copy_z(Memory_Arena* arena, String source,
-                  Arena_Push_Params params = default_arena_params());
-String push_copy_string(Memory_Arena* arena, String source,
-                        Arena_Push_Params params = default_arena_params());
+char* push_z(yd_umm count, Arena_Push_Params params = default_arena_params());
+String push_string(yd_umm capacity, Arena_Push_Params params = default_arena_params());
+char* push_copy_z(const char* source, Arena_Push_Params params = default_arena_params());
+String push_copy_string(const char* source, Arena_Push_Params params = default_arena_params());
+char* push_copy_z(String source, Arena_Push_Params params = default_arena_params());
+String push_copy_string(String source, Arena_Push_Params params = default_arena_params());
 #endif // #if defined(YD_MEMORY)
 
 void to_lower(char* str);
@@ -2411,8 +2405,8 @@ string_interpret_escapes(char* dest, String source) {
 
 #if defined(YD_MEMORY)
 char*
-push_z(Memory_Arena* arena, yd_umm count, Arena_Push_Params params) {
-    char* result = PUSH_ARRAY(arena, char, count + 1, params);
+push_z(yd_umm count, Arena_Push_Params params) {
+    char* result = PUSH_ARRAY(char, count + 1, params);
     
     if (result) {
         result[count] = 0;
@@ -2422,9 +2416,9 @@ push_z(Memory_Arena* arena, yd_umm count, Arena_Push_Params params) {
 }
 
 String
-push_string(Memory_Arena* arena, yd_umm capacity, Arena_Push_Params params) {
+push_string(yd_umm capacity, Arena_Push_Params params) {
     String result = {};
-    result.data = PUSH_ARRAY(arena, char, capacity, params);
+    result.data = PUSH_ARRAY(char, capacity, params);
     result.count = 0;
     
     if (result.data) {
@@ -2435,19 +2429,19 @@ push_string(Memory_Arena* arena, yd_umm capacity, Arena_Push_Params params) {
 }
 
 char*
-push_copy_z(Memory_Arena* arena, const char* source, Arena_Push_Params params) {
+push_copy_z(const char* source, Arena_Push_Params params) {
     yd_umm size = string_length(source);
-    char* result = (char*)PUSH_COPY(arena, source, size + 1, params);
+    char* result = (char*)PUSH_COPY(source, size + 1, params);
     
     return result;
 }
 
 String
-push_copy_string(Memory_Arena* arena, const char* source, Arena_Push_Params params) {
+push_copy_string(const char* source, Arena_Push_Params params) {
     String result = {};
     
     yd_umm size = string_length(source);
-    result.data = (char*)PUSH_COPY(arena, source, size, params);
+    result.data = (char*)PUSH_COPY(source, size, params);
     
     if (result.data) {
         result.count = size;
@@ -2458,8 +2452,9 @@ push_copy_string(Memory_Arena* arena, const char* source, Arena_Push_Params para
 }
 
 char*
-push_copy_z(Memory_Arena* arena, String source, Arena_Push_Params params) {
-    char* result = PUSH_ARRAY(arena, char, source.count + 1, params);
+push_copy_z(String source, Arena_Push_Params params) {
+    // TODO(yuval): Use PUSH_COPY
+    char* result = PUSH_ARRAY(char, source.count + 1, params);
     
     if (result) {
         COPY_ARRAY(result, source.data, source.count);
@@ -2471,9 +2466,9 @@ push_copy_z(Memory_Arena* arena, String source, Arena_Push_Params params) {
 
 
 String
-push_copy_string(Memory_Arena* arena, String source, Arena_Push_Params params) {
+push_copy_string(String source, Arena_Push_Params params) {
     String result = {};
-    result.data = (char*)PUSH_COPY(arena, source.data, source.count, params);
+    result.data = (char*)PUSH_COPY(source.data, source.count, params);
     
     if (result.data) {
         result.count = source.count;

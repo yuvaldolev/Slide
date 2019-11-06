@@ -33,16 +33,24 @@ typedef uintptr_t yd_umm;
 // NOTE(yuval): Utility Macros
 //
 
-#define YD_DO_JOIN2(Arg1, Arg2) Arg1 ## Arg2
-#define YD_JOIN2(Arg1, Arg2) YD_DO_JOIN2(Arg1, Arg2)
+#if !defined(YD_DO_JOIN2)
+# define YD_DO_JOIN2(Arg1, Arg2) Arg1 ## Arg2
+#endif // #if !defined(YD_DO_JOIN2)
+
+#if !defined(YD_JOIN2)
+# define YD_JOIN2(Arg1, Arg2) YD_DO_JOIN2(Arg1, Arg2)
+#endif // #if !defined(YD_JOIN2)
 
 //
-// NOTE(yuval): Type Definitions
+// NOTE(yuval): Type Definitions & Exported Variable Declarations
 //
 
 struct Context {
-    Memory_Arena* arena;
+    struct Memory_Arena* arena;
 };
+
+extern Context context_;
+extern Context* context;
 
 struct Context_Push_Block {
     Context original_context;
@@ -58,20 +66,6 @@ struct Context_Push_Block {
 };
 
 #define PUSH_CONTEXT(new_context) Context_Push_Block YD_JOIN2(context_block_, __COUNTER__)(new_context);
-
-//
-// NOTE(yuval): Exported Variable Declarations
-//
-
-extern Context context_;
-extern Context* context;
-
-/*
-yd_internal inline
-pop_context(Context context) {
-    global_context = global_context.prev;
-}
-*/
 
 #define YD_CONTEXT
 #endif // #if !defined(YD_CONTEXT)

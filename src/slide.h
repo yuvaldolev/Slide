@@ -3,8 +3,8 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-#include "yd/yd_memory.h"
 #include "yd/yd_context.h"
+#include "yd/yd_memory.h"
 #include "yd/yd_string.h"
 #include "yd/yd_input.h"
 

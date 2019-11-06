@@ -8,6 +8,7 @@
 #include "yd/yd_input.h"
 
 global b32 global_running;
+global s64 global_perf_count_frequency;
 
 internal PLATFORM_DISPLAY_MESSAGE_BOX(win32_display_message_box) {
     MessageBoxA(0, message, title, MB_OK);
@@ -73,6 +74,22 @@ internal PLATFORM_WRITE_ENTIRE_FILE(win32_write_entire_file) {
     return result;
 }
 
+internal LARGE_INTEGER
+win32_get_wall_clock() {
+    LARGE_INTEGER result;
+    QueryPerformanceCounter(&result);
+    
+    return result;
+}
+
+internal f32
+win32_get_seconds_elapsed(LARGE_INTEGER start, LARGE_INTEGER end) {
+    f32 result = ((f32)(end.QuadPart - start.QuadPart) /
+                  (f32)global_perf_count_frequency);
+    
+    return result;
+}
+
 internal Vector2u
 win32_get_window_dimensions(HWND window) {
     RECT client_rect;
@@ -91,6 +108,10 @@ WinMain(HINSTANCE instance,
         HINSTANCE prev_instance,
         LPSTR command_line,
         s32 show_code) {
+    LARGE_INTEGER perf_count_frequency_result;
+    QueryPerformanceFrequency(&perf_count_frequency_result);
+    global_perf_count_frequency = perf_count_frequency_result.QuadPart;
+    
     WNDCLASSA window_class = {};
     window_class.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
     window_class.lpfnWndProc = yd_input_window_proc;
@@ -116,8 +137,6 @@ WinMain(HINSTANCE instance,
         if (window) {
             Application app = {};
             
-            app.context = context;
-            
             // NOTE(yuval): Platform API Functions
             app.platform_api.display_message_box =
                 win32_display_message_box;
@@ -131,6 +150,8 @@ WinMain(HINSTANCE instance,
             
             Platform_Renderer* renderer =
                 win32_init_default_renderer(window, &limits);
+            
+            LARGE_INTEGER last_counter = win32_get_wall_clock();
             
             global_running = true;
             while (global_running) {
@@ -164,6 +185,16 @@ WinMain(HINSTANCE instance,
                 update_and_render(&app, frame, &global_input);
                 
                 renderer->end_frame(renderer, frame);
+                
+                LARGE_INTEGER flip_wall_clock = win32_get_wall_clock();
+                f32 fps = ((f32)global_perf_count_frequency /
+                           (f32)(flip_wall_clock.QuadPart - last_counter.QuadPart));
+                
+                char buff[1024];
+                _snprintf_s(buff, sizeof(buff), "FPS: %f\n", fps);
+                OutputDebugStringA(buff);
+                
+                last_counter = flip_wall_clock;
             }
         } else {
             // TODO(yuval): Diagnostics

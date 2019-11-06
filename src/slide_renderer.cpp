@@ -292,9 +292,8 @@ push_texture(Render_Group* group, Renderer_Texture texture,
 }
 
 internal void
-push_text(Render_Group* group, Memory_Arena* arena,
-          String text, Font* font, Vector3 pos,
-          Vector2 spacing, Vector4 color,
+push_text(Render_Group* group, String text, Font* font,
+          Vector3 pos, Vector2 spacing, Vector4 color,
           Draw_Mode::Type draw_mode = Draw_Mode::CENTERED) {
     Vector3 curr_pos = pos;
     
@@ -305,7 +304,7 @@ push_text(Render_Group* group, Memory_Arena* arena,
              char_index < text.count;
              ++char_index) {
             Font_Glyph* glyph = get_font_glyph(group->commands, font,
-                                               text.data[char_index], arena);
+                                               text.data[char_index]);
             
             text_width += ((glyph->advance.x / 64.0f) + spacing.x);
         }
@@ -327,7 +326,7 @@ push_text(Render_Group* group, Memory_Arena* arena,
             // curr_min_p.y -= spacing.y;
         } else {
             Font_Glyph* glyph = get_font_glyph(group->commands, font,
-                                               text.data[char_index], arena);
+                                               text.data[char_index]);
             
             Vector3 min_p = curr_pos;
             min_p.x += glyph->bearing.x;
@@ -355,30 +354,25 @@ push_text(Render_Group* group, Memory_Arena* arena,
 }
 
 inline void
-push_text(Render_Group* group, Memory_Arena* arena,
-          String text, Font* font, Vector2 pos,
-          Vector2 spacing, Vector4 color,
+push_text(Render_Group* group, String text, Font* font,
+          Vector2 pos, Vector2 spacing, Vector4 color,
           Draw_Mode::Type draw_mode = Draw_Mode::CENTERED) {
-    push_text(group, arena, text, font,
-              make_v3(pos, 0.0f), spacing, color);
+    push_text(group, text, font, make_v3(pos, 0.0f), spacing, color);
 }
 
 inline void
-push_text(Render_Group* group, Memory_Arena* arena,
-          const char* text, Font* font, Vector3 pos,
-          Vector2 spacing, Vector4 color,
+push_text(Render_Group* group, const char* text, Font* font,
+          Vector3 pos, Vector2 spacing, Vector4 color,
           Draw_Mode::Type draw_mode = Draw_Mode::CENTERED) {
-    push_text(group, arena, make_string_slowly(text),
+    push_text(group, make_string_slowly(text),
               font, pos, spacing, color);
 }
 
 inline void
-push_text(Render_Group* group, Memory_Arena* arena,
-          const char* text, Font* font, Vector2 pos,
-          f32 height, Vector2 spacing, Vector4 color,
+push_text(Render_Group* group, const char* text, Font* font,
+          Vector2 pos, Vector2 spacing, Vector4 color,
           Draw_Mode::Type draw_mode = Draw_Mode::CENTERED) {
-    push_text(group, arena, text, font,
-              make_v3(pos, 0.0f), spacing, color);
+    push_text(group, text, font, make_v3(pos, 0.0f), spacing, color);
 }
 
 internal Render_Group

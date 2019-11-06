@@ -18,7 +18,7 @@ get_font_glyph(Render_Commands* commands, Font* font, u8 character) {
             texture_queue_add_entry(commands->texture_queue, *texture,
                                     Renderer_Texture_Format::RED,
                                     Renderer_Texture_Format::RED,
-                                    PUSH_COPY(context->arena, glyph->bitmap.buffer,
+                                    PUSH_COPY(glyph->bitmap.buffer,
                                               texture->width * texture->height));
             
             result->bearing = make_v2((f32)glyph->bitmap_left,
@@ -34,8 +34,7 @@ get_font_glyph(Render_Commands* commands, Font* font, u8 character) {
 }
 
 internal Font*
-get_font_at_size(const char* directory, const char* name,
-                 u32 size, Memory_Arena* arena) {
+get_font_at_size(const char* directory, const char* name, u32 size) {
     if (!global_ft_library) {
         FT_Init_FreeType(&global_ft_library);
     }
@@ -58,7 +57,7 @@ get_font_at_size(const char* directory, const char* name,
     // NOTE(yuval): If the font was not loaded yet,
     // then we need to load it...
     if (!result) {
-        Loaded_Font* loaded_font = PUSH_STRUCT(arena, Loaded_Font);
+        Loaded_Font* loaded_font = PUSH(Loaded_Font);
         
         // NOTE(yuval): Font Initialization
         Font* font = &loaded_font->font;

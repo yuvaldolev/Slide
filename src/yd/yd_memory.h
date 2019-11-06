@@ -189,24 +189,25 @@ void zero_size(void* ptr, yd_umm size);
 // because PushSize_'s declaration uses it
 yd_internal inline Arena_Push_Params default_arena_params();
 
-void* push_size_(Memory_Arena* arena, yd_umm size_init,
-                 Arena_Push_Params params = default_arena_params());
+void* push_size_(yd_umm size_init,
+                 Arena_Push_Params params = default_arena_params(),
+                 Memory_Arena* arena = 0);
 
 #if !defined(PUSH_SIZE)
-# define PUSH_SIZE(arena, size, ...) push_size_(arena, size, ## __VA_ARGS__)
+# define PUSH_SIZE(size, ...) push_size_(size, ## __VA_ARGS__)
 #endif // #if !defined(PUSH_SIZE)
 
-#if !defined(PUSH_STRUCT)
-# define PUSH_STRUCT(arena, type, ...) (type*)push_size_(arena, sizeof(type), ## __VA_ARGS__)
-#endif // #if !defined(PUSH_STRUCT)
+#if !defined(PUSH)
+# define PUSH(type, ...) (type*)push_size_(sizeof(type), ## __VA_ARGS__)
+#endif // #if !defined(PUSH)
 
 #if !defined(PUSH_ARRAY)
-# define PUSH_ARRAY(arena, type, count, ...) (type*)push_size_(arena, (count) * sizeof(type), \
+# define PUSH_ARRAY(type, count, ...) (type*)push_size_((count) * sizeof(type), \
 ## __VA_ARGS__)
 #endif // #if !defined(PUSH_ARRAY)
 
 #if !defined(PUSH_COPY)
-# define PUSH_COPY(arena, source, size, ...) copy(push_size_(arena, size, ## __VA_ARGS__), \
+# define PUSH_COPY(source, size, ...) copy(push_size_(size, ## __VA_ARGS__), \
 (source), size)
 #endif // #if !defined(PUSH_COPY)
 
@@ -302,7 +303,8 @@ get_alignment_offset(Memory_Arena* arena, yd_umm alignment) {
 }
 
 yd_internal inline yd_umm
-get_effective_size_for(Memory_Arena* arena, yd_umm size_init, Arena_Push_Params params) {
+get_effective_size_for(Memory_Arena* arena, yd_umm size_init,
+                       Arena_Push_Params params) {
     yd_umm alignment_offset = get_alignment_offset(arena, params.alignment);
     yd_umm size = size_init + alignment_offset;
     YD_ASSERT(size >= size_init);
@@ -315,9 +317,10 @@ get_effective_size_for(Memory_Arena* arena, yd_umm size_init, Arena_Push_Params 
 //
 
 yd_internal inline Temporary_Memory
-begin_temporary_memory(Memory_Arena* arena) {
-    Temporary_Memory result;
+begin_temporary_memory() {
+    Memory_Arena* arena = context->arena;
     
+    Temporary_Memory result;
     result.arena = arena;
     result.block = arena->current_block;
     result.used = arena->current_block ? arena->current_block->used : 0;
@@ -328,7 +331,9 @@ begin_temporary_memory(Memory_Arena* arena) {
 }
 
 yd_internal inline void
-yd_memory__free_last_block(Memory_Arena* arena) {
+yd_memory__free_last_block() {
+    Memory_Arena* arena = context->arena;
+    
     Memory_Block* to_free = arena->current_block;
     arena->current_block = to_free->prev;
     
@@ -341,7 +346,7 @@ end_temporary_memory(Temporary_Memory temp_mem) {
     Memory_Arena* arena = temp_mem.arena;
     
     while (arena->current_block != temp_mem.block) {
-        yd_memory__free_last_block(arena);
+        yd_memory__free_last_block();
     }
     
     if (arena->current_block) {
@@ -370,7 +375,7 @@ bootstrap_push_size_(yd_umm size, yd_umm offset_to_arena,
     bootstrap.allocation_flags = bootstrap_params.allocation_flags;
     bootstrap.minimum_block_size = bootstrap_params.minimum_block_size;
     
-    void* result = PUSH_SIZE(&bootstrap, size, push_params);
+    void* result = PUSH_SIZE(size, push_params, &bootstrap);
     *(Memory_Arena*)((yd_u8*)result + offset_to_arena) = bootstrap;
     
     return result;
@@ -522,9 +527,13 @@ yd_memory__is_pow2(yd_u32 value) {
 }
 
 void*
-push_size_(Memory_Arena* arena, yd_umm size_init, Arena_Push_Params params) {
+push_size_(yd_umm size_init, Arena_Push_Params params, Memory_Arena* arena) {
     YD_ASSERT(params.alignment <= 128);
     YD_ASSERT(yd_memory__is_pow2(params.alignment));
+    
+    if (!arena) {
+        arena = context->arena;
+    }
     
     yd_umm size = 0;
     if (arena->current_block) {
@@ -579,7 +588,7 @@ void
 clear(Memory_Arena* arena) {
     for (;;) {
         yd_b32 is_last_block = (arena->current_block->prev == 0);
-        yd_memory__free_last_block(arena);
+        yd_memory__free_last_block();
         
         if (is_last_block) {
             break;

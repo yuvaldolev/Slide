@@ -9,9 +9,6 @@
 #define YD_STRING_FORMAT_IMPLEMENTATION
 #include "yd/yd_string_format.h"
 
-#define YD_MEMORY_IMPLEMENTATION
-#include "yd/yd_memory.h"
-
 // TODO(yuval): Temporary! Find a way to use slide_assert.h
 // in the opengl renderer
 #define ASSERT(expression) if(!(expression)) {*(volatile int *)0 = 0;}
