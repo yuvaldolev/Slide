@@ -16,6 +16,36 @@
 #include "slide_renderer.h"
 #include "slide_fonts.h"
 
+#define DLIST_INIT(sentinel) { \
+    (sentinel)->next = (sentinel);\
+    (sentinel)->prev = (sentinel); \
+}
+
+#define DLIST_IS_EMPTY(sentinel) \
+((sentinel)->next == (sentinel))
+
+#define DLIST_INSERT(sentinel, element) { \
+    (element)->next = (sentinel)->next; \
+    (element)->prev = (sentinel); \
+    (element)->next->prev = (element); \
+    (element)->prev->next = (element); \
+}
+
+#define DLIST_INSERT_BACK(sentinel, element) { \
+    (element)->next = (sentinel); \
+    (element)->prev = (sentinel)->prev; \
+    (element)->next->prev = (element); \
+    (element)->prev->next = (element); \
+}
+
+#define DLIST_REMOVE(element) { \
+    if (element->next) { \
+        (element)->next->prev = (element)->prev; \
+        (element)->prev->next = (element)->next; \
+        (element)->next = (element)->prev = 0; \
+    } \
+}
+
 namespace Slide_Item_Kind {
     enum Type {
         TEXT
@@ -36,20 +66,24 @@ struct Slide_Item {
         Text_Item text;
     };
     
-    Slide_Item* next_item;
+    Slide_Item* next;
+};
+
+struct Slide_Link {
+    Slide_Link* prev;
+    Slide_Link* next;
 };
 
 struct Slide {
+    Slide_Link link;
+    
     Vector4 background_color;
     Slide_Item* first_item;
-    
-    // TODO(yuval): Make a proper doubly linked list
-    Slide* prev_slide;
-    Slide* next_slide;
 };
 
 struct Slideshow {
-    Slide* first_slide;
+    Slide_Link slide_sentinel;
+    
     Slide* current_slide;
 };
 

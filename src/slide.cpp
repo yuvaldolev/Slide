@@ -20,7 +20,7 @@ make_slide_item(Slide_Item_Kind::Type kind, Vector2 pos,
     Slide_Item* result = PUSH(Slide_Item);
     result->kind = kind;
     result->pos = pos;
-    result->next_item = next_item;
+    result->next = next_item;
     
     return result;
 }
@@ -53,7 +53,9 @@ update_and_render(Application* app, Render_Commands* render_commands, Input* inp
         PUSH_CONTEXT(new_context);
         
         Slideshow* slideshow = &state->slideshow;
+        DLIST_INIT(&slideshow->slide_sentinel);
         
+        // NOTE(yuval): Slide 1
         Slide* slide1 = PUSH(Slide);
         slide1->background_color = make_v4(0.5f, 0.03f, 0.06f, 1.0f);
         
@@ -61,30 +63,31 @@ update_and_render(Application* app, Render_Commands* render_commands, Input* inp
             make_text_item(BUNDLE_LITERAL("Hello, Friend."));
         slide1->first_item = slide1_text;
         
-        slideshow->first_slide = slide1;
+        DLIST_INSERT_BACK(&slideshow->slide_sentinel, &slide1->link);
         
+        // NOTE(yuval): Slide 2
         Slide* slide2 = PUSH(Slide);
         slide2->background_color = make_v4(0.03f, 0.5f, 0.06f, 1.0f);
-        slide2->prev_slide = slide1;
-        slide1->next_slide = slide2;
         
         Slide_Item* slide2_text =
             make_text_item(BUNDLE_LITERAL("What i'm about to tell you is top secret."));
         slide2->first_item = slide2_text;
         
+        DLIST_INSERT_BACK(&slideshow->slide_sentinel, &slide2->link);
+        
+        // NOTE(yuval): Slide 3
         Slide* slide3 = PUSH(Slide);
         slide3->background_color = make_v4(0.03f, 0.06f, 0.5f, 1.0f);
-        slide3->prev_slide = slide2;
-        slide2->next_slide = slide3;
         
         Slide_Item* slide3_text =
             make_text_item(BUNDLE_LITERAL("A conspiracy bigger than all of us."));
         slide3->first_item = slide3_text;
         
+        DLIST_INSERT_BACK(&slideshow->slide_sentinel, &slide3->link);
+        
+        // NOTE(yuval): Slide 4
         Slide* slide4 = PUSH(Slide);
         slide4->background_color = make_v4(0.4f, 0.03f, 0.5f, 1.0f);
-        slide4->prev_slide = slide3;
-        slide3->next_slide = slide4;
         
         Slide_Item* slide4_text1 =
             make_text_item(BUNDLE_LITERAL("There's a powerful group of people out"),
@@ -93,7 +96,9 @@ update_and_render(Application* app, Render_Commands* render_commands, Input* inp
             make_text_item(BUNDLE_LITERAL("there that are secretly running the world."),
                            make_v2(0.5f, 0.45f));
         slide4->first_item = slide4_text1;
-        slide4->first_item->next_item = slide4_text2;
+        slide4->first_item->next = slide4_text2;
+        
+        DLIST_INSERT_BACK(&slideshow->slide_sentinel, &slide4->link);
         
         slideshow->current_slide = slide1;
     }
@@ -114,16 +119,19 @@ update_and_render(Application* app, Render_Commands* render_commands, Input* inp
                 if (event->button.pressed) {
                     switch (event->button.code) {
                         case Button_Code::ARROW_RIGHT: {
-                            if (slideshow->current_slide->next_slide) {
+                            if (!(slideshow->current_slide->link.next ==
+                                  &slideshow->slide_sentinel)) {
                                 slideshow->current_slide =
-                                    slideshow->current_slide->next_slide;
+                                    (Slide*)slideshow->current_slide->link.next;
                             }
                         } break;
                         
                         case Button_Code::ARROW_LEFT: {
-                            if (slideshow->current_slide->prev_slide)
+                            if (!(slideshow->current_slide->link.prev ==
+                                  &slideshow->slide_sentinel)) {
                                 slideshow->current_slide =
-                                slideshow->current_slide->prev_slide;
+                                    (Slide*)slideshow->current_slide->link.prev;
+                            }
                         } break;
                     }
                 }
@@ -149,7 +157,7 @@ update_and_render(Application* app, Render_Commands* render_commands, Input* inp
         
         for (Slide_Item* item = slide->first_item;
              item;
-             item = item->next_item) {
+             item = item->next) {
             Vector2 item_window_pos =
                 hadamard(item->pos, v2_from(render_commands->render_dim));
             
@@ -168,5 +176,6 @@ update_and_render(Application* app, Render_Commands* render_commands, Input* inp
                   make_v2(200, 500), 72.0f, make_v2(10.0f, 15.0f), make_v4(0.2f, 0.3f, 0.8f, 1.0f));
 #endif // #if 0
     }
+    
     end_render_group(&render_group);
 }

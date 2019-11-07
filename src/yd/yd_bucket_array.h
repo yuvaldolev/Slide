@@ -42,8 +42,7 @@ typedef uintptr_t yd_umm;
 //
 
 template <typename T>
-struct Bucket
-{
+struct Bucket {
     T* data;
     yd_umm count;
     yd_umm capacity;
