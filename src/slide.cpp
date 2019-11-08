@@ -9,6 +9,9 @@
 #define YD_STRING_IMPLEMENTATION
 #include "yd/yd_string.h"
 
+#define YD_HOTLOADER_IMPLEMENTATION
+#include "yd/yd_hotloader.h"
+
 #include "slide_math.cpp"
 
 #include "slide_fonts.cpp"
@@ -153,7 +156,7 @@ update_and_render(Application* app, Render_Commands* render_commands, Input* inp
         push_rect(&render_group, background_rect,
                   make_v3(0.0f, 0.0f, 0.0f), slide->background_color);
         
-        Font* font = get_font_at_size("data/fonts", "Abang.ttf", 42);
+        Font* font = get_font_at_size("data/fonts", "KarminaBold.ttf", 42);
         
         for (Slide_Item* item = slide->first_item;
              item;
@@ -170,11 +173,6 @@ update_and_render(Application* app, Render_Commands* render_commands, Input* inp
                 } break;
             }
         }
-        
-#if 0
-        push_text(&render_group, "Hello World, Program", render_commands->default_font,
-                  make_v2(200, 500), 72.0f, make_v2(10.0f, 15.0f), make_v4(0.2f, 0.3f, 0.8f, 1.0f));
-#endif // #if 0
     }
     
     end_render_group(&render_group);

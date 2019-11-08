@@ -42,15 +42,23 @@ typedef uintptr_t yd_umm;
 // NOTE(yuval): To be used only in the same function
 // where the array was defined or with arrays that are defined
 // within structs
-#define YD_ARRAY_COUNT(array) (sizeof(array) / sizeof((array)[0]))
+#if !defined(YD_ARRAY_COUNT)
+# define YD_ARRAY_COUNT(array) (sizeof(array) / sizeof((array)[0]))
+#endif // #if !defined(YD_ARRAY_COUNT)
 
-#define YD_READ_VAR_ARG_UNSIGNED_INTEGER(length, arg_list) (length == 8) ? \
+#if !defined(YD_READ_VAR_ARG_UNSIGNED_INTEGER)
+# define YD_READ_VAR_ARG_UNSIGNED_INTEGER(length, arg_list) (length == 8) ? \
 va_arg(arg_list, yd_u64) : va_arg(arg_list, yd_u32)
+#endif // #if !defined(YD_READ_VAR_ARG_UNSIGNED_INTEGER)
 
-#define YD_READ_VAR_ARG_SIGNED_INTEGER(length, arg_list) (length == 8) ? \
+#if !defined(YD_READ_VAR_ARG_SIGNED_INTEGER)
+# define YD_READ_VAR_ARG_SIGNED_INTEGER(length, arg_list) (length == 8) ? \
 va_arg(arg_list, yd_s64) : va_arg(arg_list, yd_s32)
+#endif // #if !defined(YD_READ_VAR_ARG_SIGNED_INTEGER)
 
-#define YD_READ_VAR_ARG_FLOAT(length, arg_list) va_arg(arg_list, yd_f64)
+#if !defined(YD_READ_VAR_ARG_FLOAT)
+# define YD_READ_VAR_ARG_FLOAT(length, arg_list) va_arg(arg_list, yd_f64)
+#endif // #if !defined(YD_READ_VAR_ARG_FLOAT)
 
 //
 // NOTE(yuval): Type Definitions
