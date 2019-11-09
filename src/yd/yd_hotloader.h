@@ -184,6 +184,8 @@ win32_pump_notifications(Hotloader* hotloader) {
             
             FILE_NOTIFY_INFORMATION* notify = info.notify_info;
             while (notify) {
+                // NOTE(yuval): Reading the action that was taken
+                // on the notification's file
                 const char* action_name = "UNKNOWN";
                 switch (notify->Action) {
                     case FILE_ACTION_ADDED: { action_name = "ADDED"; } break;
@@ -197,18 +199,99 @@ win32_pump_notifications(Hotloader* hotloader) {
                     }
                 }
                 
+                // NOTE(yuval): Filename Translation From WideChars To Bytes
                 WCHAR* wchar_name = notify.FileName;
                 DOWRD wchar_name_size_in_bytes = notify.FileNameLength;
                 
-                u8 filename_buffer[1024];
+                yd_u8 filename_buffer[1024];
                 yd_s32 filename_count = WideCharToMultiByte(
                     CP_ACP, WC_NO_BEST_FIT_CHARS,
                     wchar_name, wchar_name_size_in_bytes / sizeof(WCHAR),
-                    sizeof(filename_buffer) - 1,
+                    filename_buffer, sizeof(filename_buffer) - 1,
                     0, 0);
                 
-                if (filename_count != 0) {
-                    name_buffer[filename_count] = 0;
+                if (filename_count == 0) {
+                    log("Hotloader", "WideCharToMultiByte returned empty string");
+                    continue;
+                } else {
+                    filename_buffer[filename_count] = 0;
+                    log("Hotloader", "Action '%s' on file '%s'", action_name, name);
+                }
+                
+                String filename = {
+                    filename_buffer,
+                    filename_count,
+                    sizeof(filename_buffer)
+                };
+                
+                // NOTE(yuval): Windows Slash Replacement
+                for (yd_umm index = 0; index < filename.count; ++index) {
+                    if (filename[index] == '\\') {
+                        filename[index] = '/';
+                    }
+                }
+                
+                // NOTE(yuval): Full File Path Formatting
+                char full_name_buffer[1024];
+                umm full_name_count = format_string(full_name_buffer, "%s/%S",
+                                                    info->name, filename);
+                String full_name = {
+                    full_name_buffer,
+                    full_name_count,
+                    sizeof(full_name_buffer)
+                };
+                
+                // NOTE(yuval): File Extension Formatting
+                String extension = file_extension(filename);
+                to_lower(&extension);
+                
+                // NOTE(yuval): Short Name Formatting
+                remove_extension(&filename);
+                String short_name = filename;
+                
+                // NOTE(yuval): Temporary File Rejection
+                yd_b32 should_reject = false;
+                
+                if (short_name.count) == 0 {
+                    should_reject = true;
+                }
+                
+                if (short_name.count >= 1) {
+                    switch (short_name[short_name.count - 1]) {
+                        case '~': { should_reject = true; } break;
+                        case '#': { should_reject = true; } break;
+                    }
+                }
+                
+                if (short_name.count >= 2) {
+                    // NOTE(yuval): Emacs Temporary Files
+                    if ((short_name[0] == '.') && (short_name[1] == '#')) {
+                        
+                    }
+                }
+                
+                if (short_name.count >= 3) {
+                    // NOTE(yuval): Photoshop Temporary Files
+                    if ((short_name[0] == '~') && (short_name[1] == 'p') &&
+                        (short_name[2] == 's')) {
+                        should_reject = true;
+                    }
+                }
+                
+                if (should_reject) {
+                    log("Hotloader", "Rejecting changes to: '%s'", short_name);
+                    continue;
+                }
+                
+                // NOTE(yuval): Adding the change to the asset change list
+                if (extension.count != 0) {
+                    Asset_Change* change = PUSH(Asset_Change);
+                    change->short_name = short_name;
+                    change->full_name = full_name;
+                    change->extension = extension;
+                    change->next = hotloader->first_asset_change;
+                    
+                    hotloader->first_asset_change = change;
                 }
                 
                 notify = win32_move_info_forward(notify);

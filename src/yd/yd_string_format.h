@@ -59,7 +59,6 @@ va_arg(arg_list, yd_s64) : va_arg(arg_list, yd_s32)
 #if !defined(YD_READ_VAR_ARG_FLOAT)
 # define YD_READ_VAR_ARG_FLOAT(length, arg_list) va_arg(arg_list, yd_f64)
 #endif // #if !defined(YD_READ_VAR_ARG_FLOAT)
-
 //
 // NOTE(yuval): Type Definitions
 //

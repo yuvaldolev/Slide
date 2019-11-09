@@ -52,13 +52,31 @@ struct String {
     char* data;
     yd_umm count;
     yd_umm capacity;
+    
+    char& operator[](yd_umm index) {
+        YD_ASSERT(index < count);
+        
+        char& result = data[index];
+        return result;
+    }
+    
+    const char& operator[](yd_umm index) const {
+        YD_ASSERT(index < count);
+        
+        const char& result = data[index];
+        return result;
+    }
 };
 
 // TODO(yuval): Maybe create A UTF8 string struct
 
-#if !defined(LITERIAL)
+#if !defined(INIT_FROM_LITERAL)
+# define INIT_FROM_LITERAL(str) {str, sizeof(str) - 1, sizeof(str)}
+#endif // #if !defined(INIT_FROM_LITERAL)
+
+#if !defined(EXPAND_LITERAL)
 # define EXPAND_LITERAL(str) (str), (sizeof(str) - 1)
-#endif // #if !defined(LITERIAL)
+#endif // #if !defined(EXPAND_LITERAL)
 
 #if !defined(EXPAND_STRING)
 # define EXPAND_STRING(str) ((str).data), ((str).count)
@@ -3086,7 +3104,7 @@ remove_last_folder(String* path) {
 String
 file_extension(String filename) {
     String result = {};
-    yd_umm dot_index = find(filename, '.');
+    yd_umm dot_index = rfind(filename, '.');
     
     if (dot_index != STRING_NOT_FOUND) {
         result = make_string(filename.data + dot_index + 1,
@@ -3099,7 +3117,7 @@ file_extension(String filename) {
 yd_b32
 set_extension(String* filename, const char* extension) {
     yd_b32 result = false;
-    yd_umm last_dot_index = find(*filename, '.');
+    yd_umm last_dot_index = rfind(*filename, '.');
     
     if (last_dot_index != STRING_NOT_FOUND) {
         yd_umm count = last_dot_index;
@@ -3120,7 +3138,7 @@ set_extension(String* filename, const char* extension) {
 yd_b32
 set_extension(String* filename, String extension) {
     yd_b32 result = false;
-    yd_umm last_dot_index = find(*filename, '.');
+    yd_umm last_dot_index = rfind(*filename, '.');
     
     if (last_dot_index != STRING_NOT_FOUND) {
         yd_umm count = last_dot_index + 1;
@@ -3141,7 +3159,7 @@ set_extension(String* filename, String extension) {
 yd_b32
 remove_extension(String* filename) {
     yd_b32 result = false;
-    yd_umm last_dot_index = find(*filename, '.');
+    yd_umm last_dot_index = rfind(*filename, '.');
     
     if (last_dot_index != STRING_NOT_FOUND) {
         result = true;

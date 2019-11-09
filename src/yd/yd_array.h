@@ -48,14 +48,14 @@ struct Array {
     yd_umm capacity;
     
     inline T& operator[](yd_umm index) {
-        ASSERT(index < count);
+        YD_ASSERT(index < count);
         
         T& result = data[index];
         return result;
     }
     
     inline const T& operator[](yd_umm index) const {
-        ASSERT(index < count);
+        YD_ASSERT(index < count);
         
         const T& result = data[index];
         return result;
