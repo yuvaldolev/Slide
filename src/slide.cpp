@@ -9,8 +9,16 @@
 #define YD_STRING_IMPLEMENTATION
 #include "yd/yd_string.h"
 
+#define YD_STRING_FORMAT_IMPLEMENTATION
+#include "yd/yd_string_format.h"
+
+#define YD_LOG_IMPLEMENTATION
+#include "yd/yd_log.h"
+
+/*
 #define YD_HOTLOADER_IMPLEMENTATION
 #include "yd/yd_hotloader.h"
+*/
 
 #include "slide_math.cpp"
 
@@ -136,6 +144,10 @@ update_and_render(Application* app, Render_Commands* render_commands, Input* inp
                                     (Slide*)slideshow->current_slide->link.prev;
                             }
                         } break;
+                        
+                        case Button_Code::F1: {
+                            state->should_view_logs = !state->should_view_logs;
+                        } break;
                     }
                 }
             } break;
@@ -172,6 +184,40 @@ update_and_render(Application* app, Render_Commands* render_commands, Input* inp
                               text_item->color);
                 } break;
             }
+        }
+    }
+    
+    if (state->should_view_logs) {
+        Vector2 min_p =
+            make_v2(0.0f, render_commands->render_dim.height * 0.2f);
+        
+        Rectangle2 background_rect = rect_min_max(
+            min_p,
+            make_v2(render_commands->render_dim.width,
+                    render_commands->render_dim.height));
+        
+        push_rect(&render_group, background_rect,
+                  make_v3(0.0f, 0.0f, 0.0f),
+                  make_v4(5.0f / 255.0f, 35.0f / 255.0f, 41.0f / 255.0f, 1.0f));
+        
+        Font* font = get_font_at_size("data/fonts", "DroidSansMono.ttf", 16);
+        
+        f32 pad_y = 20.0f;
+        Vector2 pos = (min_p + make_v2(15.0f, pad_y));
+        Log* log_at = global_log_list;
+        while (pos.y < render_commands->render_dim.height) {
+            if (!log_at) {
+                break;
+            }
+            
+            push_text(&render_group, log_at->message, font,
+                      pos, make_v2(1.0f, 0.0f),
+                      make_v4(1.0f, 1.0f, 1.0f, 1.0f),
+                      Draw_Mode::LEFT_JUSTIFY);
+            
+            // TODO(yuval): Get actual character height from the font itself
+            pos.y += 10.0f + pad_y;
+            log_at = log_at->next;
         }
     }
     

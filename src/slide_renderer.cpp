@@ -357,7 +357,8 @@ inline void
 push_text(Render_Group* group, String text, Font* font,
           Vector2 pos, Vector2 spacing, Vector4 color,
           Draw_Mode::Type draw_mode = Draw_Mode::CENTERED) {
-    push_text(group, text, font, make_v3(pos, 0.0f), spacing, color);
+    push_text(group, text, font, make_v3(pos, 0.0f),
+              spacing, color, draw_mode);
 }
 
 inline void
@@ -365,14 +366,15 @@ push_text(Render_Group* group, const char* text, Font* font,
           Vector3 pos, Vector2 spacing, Vector4 color,
           Draw_Mode::Type draw_mode = Draw_Mode::CENTERED) {
     push_text(group, make_string_slowly(text),
-              font, pos, spacing, color);
+              font, pos, spacing, color, draw_mode);
 }
 
 inline void
 push_text(Render_Group* group, const char* text, Font* font,
           Vector2 pos, Vector2 spacing, Vector4 color,
           Draw_Mode::Type draw_mode = Draw_Mode::CENTERED) {
-    push_text(group, text, font, make_v3(pos, 0.0f), spacing, color);
+    push_text(group, text, font, make_v3(pos, 0.0f),
+              spacing, color, draw_mode);
 }
 
 internal Render_Group

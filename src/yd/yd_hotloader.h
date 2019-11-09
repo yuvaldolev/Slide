@@ -125,7 +125,7 @@ struct Hotloader {
 #endif // #if !defined(YD_HOTLOADER)
 
 //
-// NOTE(yuval): YD Input Implementation
+// NOTE(yuval): YD Hotloader Implementation
 //
 
 #if defined(YD_HOTLOADER_IMPLEMENTATION)
@@ -147,10 +147,74 @@ win32_issue_one_read(Directory_Info* info) {
     yd_b32 result = ReadDirectoryChangesW(
         info->handle, info->notify_info,
         YD_HOTLOADER__NOTIFY_LEN,
-        TRUE, FILE_NOTIFY_CHANGE_LAST_WRITE,
+        TRUE,
+        FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_LAST_WRITE |
+        FILE_NOTIFY_CHANGE_CREATION,
         &bytes_returned, &info->overlapped, 0);
     
     info->read_issue_failed = result;
+}
+
+yd_internal void
+win32_pump_notifications(Hotloader* hotloader) {
+    for (Directory_Info* info = hotloader->first_dir;
+         info;
+         info = info->next) {
+        if (HasOverlappedIoCompleted(info)) {
+            // NOTE(yuval): Overlapped Result Retrieval
+            yd_s32 bytes_transferred;
+            yd_b32 success = GetOverlappedResult(
+                info->handle, &info->overlapped,
+                &bytes_transferred, FALSE);
+            YD_ASSERT(success);
+            
+            // TODO(yuval): Proper logging & a way to to disable this log
+            log("Hotloader", "bytes_transferred = %d (struct size: %d)",
+                bytes_transferred, sizeof(FILE_NOTIFY_INFORMATION));
+            
+            // NOTE(yuval): Issue Next Read
+            win32_issue_one_read(info);
+            
+            // NOTE(yuval): Sometimes is seems that this call failes.
+            // In that case, bytes_transferred will be 0, indicating that
+            // the destination data is uninitialized.
+            if (bytes_transferred == 0) {
+                break;
+            }
+            
+            FILE_NOTIFY_INFORMATION* notify = info.notify_info;
+            while (notify) {
+                const char* action_name = "UNKNOWN";
+                switch (notify->Action) {
+                    case FILE_ACTION_ADDED: { action_name = "ADDED"; } break;
+                    case FILE_ACTION_MODIFIED: { action_name = "MODIFIED"; } break;
+                    case FILE_ACTION_RENAMED_NEW_NAME: { action_name = "RENAMED"; } break;
+                    default: {
+                        log("Hotloader", "Discarded case %", notify.Action);
+                        
+                        // NOTE(yuval): Ignoring REMOVE and RENAMED_OLD_NAME file actions
+                        continue;
+                    }
+                }
+                
+                WCHAR* wchar_name = notify.FileName;
+                DOWRD wchar_name_size_in_bytes = notify.FileNameLength;
+                
+                u8 filename_buffer[1024];
+                yd_s32 filename_count = WideCharToMultiByte(
+                    CP_ACP, WC_NO_BEST_FIT_CHARS,
+                    wchar_name, wchar_name_size_in_bytes / sizeof(WCHAR),
+                    sizeof(filename_buffer) - 1,
+                    0, 0);
+                
+                if (filename_count != 0) {
+                    name_buffer[filename_count] = 0;
+                }
+                
+                notify = win32_move_info_forward(notify);
+            }
+        }
+    }
 }
 #endif // #if YD_WIN32
 
@@ -221,4 +285,4 @@ hotloader_init(Hotloader* hotloader) {
 }
 #endif // #if YD_WIN32
 
-#endif // #if defined(YD_HOTLOADER_IMPLEMENTATION)
+#endif // #if

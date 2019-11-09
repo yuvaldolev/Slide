@@ -6,7 +6,8 @@
 #include "yd/yd_context.h"
 #include "yd/yd_memory.h"
 #include "yd/yd_string.h"
-#include "yd/yd_hotloader.h"
+#include "yd/yd_string_format.h"
+#include "yd/yd_log.h"
 #include "yd/yd_input.h"
 
 #include "slide_platform.h"
@@ -92,6 +93,7 @@ struct App_State {
     Memory_Arena arena;
     
     Slideshow slideshow;
+    b32 should_view_logs;
 };
 
 #define SLIDE_H
