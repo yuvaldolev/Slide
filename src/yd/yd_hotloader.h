@@ -111,6 +111,9 @@ struct Asset_Change {
     Asset_Change* next;
 };
 
+#define HOTLOADER_CALLBACK(name) void name(Asset_Change* change, yd_b32 handled)
+typedef HOTLOADER_CALLBACK(Hotloader_Callback);
+
 struct Hotloader {
     yd_b32 is_initialized;
     
@@ -119,6 +122,8 @@ struct Hotloader {
     
     // Bucket_Array<Asset_Change> asset_changes;
     Asset_Change* first_asset_change;
+    
+    Hotloader_Callback* callback;
 };
 
 #define YD_HOTLOADER
@@ -160,9 +165,9 @@ win32_pump_notifications(Hotloader* hotloader) {
     for (Directory_Info* info = hotloader->first_dir;
          info;
          info = info->next) {
-        if (HasOverlappedIoCompleted(info)) {
+        if (HasOverlappedIoCompleted(&info->overlapped)) {
             // NOTE(yuval): Overlapped Result Retrieval
-            yd_s32 bytes_transferred;
+            DWORD bytes_transferred;
             yd_b32 success = GetOverlappedResult(
                 info->handle, &info->overlapped,
                 &bytes_transferred, FALSE);
@@ -182,7 +187,7 @@ win32_pump_notifications(Hotloader* hotloader) {
                 break;
             }
             
-            FILE_NOTIFY_INFORMATION* notify = info.notify_info;
+            FILE_NOTIFY_INFORMATION* notify = info->notify_info;
             while (notify) {
                 // NOTE(yuval): Reading the action that was taken
                 // on the notification's file
@@ -192,7 +197,7 @@ win32_pump_notifications(Hotloader* hotloader) {
                     case FILE_ACTION_MODIFIED: { action_name = "MODIFIED"; } break;
                     case FILE_ACTION_RENAMED_NEW_NAME: { action_name = "RENAMED"; } break;
                     default: {
-                        log("Hotloader", "Discarded case %", notify.Action);
+                        log("Hotloader", "Discarded case %", notify->Action);
                         
                         // NOTE(yuval): Ignoring REMOVE and RENAMED_OLD_NAME file actions
                         continue;
@@ -200,14 +205,15 @@ win32_pump_notifications(Hotloader* hotloader) {
                 }
                 
                 // NOTE(yuval): Filename Translation From WideChars To Bytes
-                WCHAR* wchar_name = notify.FileName;
-                DOWRD wchar_name_size_in_bytes = notify.FileNameLength;
+                WCHAR* wchar_name = notify->FileName;
+                DWORD wchar_name_size_in_bytes = notify->FileNameLength;
                 
-                yd_u8 filename_buffer[1024];
+                const yd_umm FILENAME_BUFFER_SIZE = 1024;
+                char* filename_buffer = PUSH_ARRAY(char, FILENAME_BUFFER_SIZE);
                 yd_s32 filename_count = WideCharToMultiByte(
                     CP_ACP, WC_NO_BEST_FIT_CHARS,
                     wchar_name, wchar_name_size_in_bytes / sizeof(WCHAR),
-                    filename_buffer, sizeof(filename_buffer) - 1,
+                    filename_buffer, FILENAME_BUFFER_SIZE - 1,
                     0, 0);
                 
                 if (filename_count == 0) {
@@ -215,13 +221,13 @@ win32_pump_notifications(Hotloader* hotloader) {
                     continue;
                 } else {
                     filename_buffer[filename_count] = 0;
-                    log("Hotloader", "Action '%s' on file '%s'", action_name, name);
+                    log("Hotloader", "Action '%s' on file '%s'", action_name, filename_buffer);
                 }
                 
                 String filename = {
                     filename_buffer,
-                    filename_count,
-                    sizeof(filename_buffer)
+                    (yd_umm)filename_count,
+                    FILENAME_BUFFER_SIZE
                 };
                 
                 // NOTE(yuval): Windows Slash Replacement
@@ -232,13 +238,14 @@ win32_pump_notifications(Hotloader* hotloader) {
                 }
                 
                 // NOTE(yuval): Full File Path Formatting
-                char full_name_buffer[1024];
-                umm full_name_count = format_string(full_name_buffer, "%s/%S",
-                                                    info->name, filename);
+                const yd_umm FULL_NAME_BUFFER_SIZE = 1024;
+                char* full_name_buffer = PUSH_ARRAY(char, FULL_NAME_BUFFER_SIZE);
+                yd_umm full_name_count = format_string(full_name_buffer, FULL_NAME_BUFFER_SIZE,
+                                                       "%s/%S", info->name, filename);
                 String full_name = {
                     full_name_buffer,
                     full_name_count,
-                    sizeof(full_name_buffer)
+                    FULL_NAME_BUFFER_SIZE
                 };
                 
                 // NOTE(yuval): File Extension Formatting
@@ -247,12 +254,12 @@ win32_pump_notifications(Hotloader* hotloader) {
                 
                 // NOTE(yuval): Short Name Formatting
                 remove_extension(&filename);
-                String short_name = filename;
+                String short_name = front_of_directory(filename);
                 
                 // NOTE(yuval): Temporary File Rejection
                 yd_b32 should_reject = false;
                 
-                if (short_name.count) == 0 {
+                if (short_name.count == 0) {
                     should_reject = true;
                 }
                 
@@ -266,7 +273,7 @@ win32_pump_notifications(Hotloader* hotloader) {
                 if (short_name.count >= 2) {
                     // NOTE(yuval): Emacs Temporary Files
                     if ((short_name[0] == '.') && (short_name[1] == '#')) {
-                        
+                        should_reject = true;
                     }
                 }
                 
@@ -294,7 +301,12 @@ win32_pump_notifications(Hotloader* hotloader) {
                     hotloader->first_asset_change = change;
                 }
                 
-                notify = win32_move_info_forward(notify);
+                if (notify->NextEntryOffset == 0) {
+                    notify = 0;
+                } else {
+                    notify = (FILE_NOTIFY_INFORMATION*)
+                        (((u8*)notify) + notify->NextEntryOffset);
+                }
             }
         }
     }
@@ -366,6 +378,61 @@ hotloader_init(Hotloader* hotloader) {
     
     hotloader->is_initialized = true;
 }
+
+void
+hotloader_register_callback(Hotloader* hotloader, Hotloader_Callback* callback) {
+    hotloader->callback = callback;
+}
+
+yd_b32
+hotloader_process_change(Hotloader* hotloader) {
+    YD_ASSERT(hotloader->is_initialized);
+    
+    yd_b32 result = true;
+    
+    for (Directory_Info* info = hotloader->first_dir;
+         info;
+         info = info->next) {
+        if (info->read_issue_failed) {
+            info->read_issue_failed = false;
+            win32_issue_one_read(info);
+            
+            if (info->read_issue_failed) {
+                result = false;
+                break;
+            }
+        }
+    }
+    
+    if (result) {
+        if (hotloader->first_asset_change) {
+            for (Asset_Change* change = hotloader->first_asset_change;
+                 change;
+                 change = change->next) {
+                // TODO(yuval): Update the change's last_change_time
+                
+                yd_b32 handled = false;
+                // TODO(yuval): Find the catalogs that support this change
+                
+                if (!handled) {
+                    log("Hotloader", "Non-catalog asset change '%S'",
+                        change->short_name);
+                }
+                
+                if (hotloader->callback) {
+                    hotloader->callback(change, handled);
+                }
+            }
+            
+            hotloader->first_asset_change = 0;
+        } else {
+            result = false;
+        }
+    }
+    
+    return result;
+}
+
 #endif // #if YD_WIN32
 
 #endif // #if

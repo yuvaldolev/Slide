@@ -8,6 +8,7 @@
 #include "yd/yd_string.h"
 #include "yd/yd_string_format.h"
 #include "yd/yd_log.h"
+#include "yd/yd_hotloader.h"
 #include "yd/yd_input.h"
 
 #include "slide_platform.h"

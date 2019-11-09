@@ -15,10 +15,8 @@
 #define YD_LOG_IMPLEMENTATION
 #include "yd/yd_log.h"
 
-/*
 #define YD_HOTLOADER_IMPLEMENTATION
 #include "yd/yd_hotloader.h"
-*/
 
 #include "slide_math.cpp"
 

@@ -313,7 +313,7 @@ substr(String str, yd_umm start, yd_umm count) {
     
     result.count = count;
     // TODO(yuval): Verify that this works
-    if (start + count > str.count) {
+    if ((start + count) > str.count) {
         result.count = str.count - start;
     }
     
@@ -1123,6 +1123,12 @@ is_slash(char c) {
 
 yd_internal inline String
 front_of_directory(String dir) {
+    // NOTE(yuval): This works even if a slash is not found:
+    // when a slash is not found, reverse_seek_slash returns
+    // STRING_NOT_FOUND which is defined to be the max value
+    // of yd_umm. This means that if the slash is not found,
+    // we add 1 to the max unsigned value, and therefore we
+    // get the index 0, which will return the whole string.
     String result = substr(dir, reverse_seek_slash(dir) + 1);
     return result;
 }
