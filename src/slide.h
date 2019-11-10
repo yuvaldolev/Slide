@@ -93,6 +93,8 @@ struct Slideshow {
 struct App_State {
     Memory_Arena arena;
     
+    Hotloader hotloader;
+    
     Slideshow slideshow;
     b32 should_view_logs;
 };

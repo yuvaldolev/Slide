@@ -157,7 +157,7 @@ win32_issue_one_read(Directory_Info* info) {
         FILE_NOTIFY_CHANGE_CREATION,
         &bytes_returned, &info->overlapped, 0);
     
-    info->read_issue_failed = result;
+    info->read_issue_failed = !result;
 }
 
 yd_internal void
@@ -405,6 +405,9 @@ hotloader_process_change(Hotloader* hotloader) {
     }
     
     if (result) {
+        
+        win32_pump_notifications(hotloader);
+        
         if (hotloader->first_asset_change) {
             for (Asset_Change* change = hotloader->first_asset_change;
                  change;
@@ -413,11 +416,6 @@ hotloader_process_change(Hotloader* hotloader) {
                 
                 yd_b32 handled = false;
                 // TODO(yuval): Find the catalogs that support this change
-                
-                if (!handled) {
-                    log("Hotloader", "Non-catalog asset change '%S'",
-                        change->short_name);
-                }
                 
                 if (hotloader->callback) {
                     hotloader->callback(change, handled);

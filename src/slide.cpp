@@ -23,6 +23,17 @@
 #include "slide_fonts.cpp"
 #include "slide_renderer.cpp"
 
+internal HOTLOADER_CALLBACK(slide_hotloader_callback) {
+    if (!handled) {
+        log("hotloader_callback", "Non-catalog asset change '%S'",
+            change->full_name);
+        
+        if (strings_match(change->extension, "slide")) {
+            log("hotloader_callback", "Reloading Slideshow...");
+        }
+    }
+}
+
 internal Slide_Item*
 make_slide_item(Slide_Item_Kind::Type kind, Vector2 pos,
                 Slide_Item* next_item = 0) {
@@ -60,6 +71,9 @@ update_and_render(Application* app, Render_Commands* render_commands, Input* inp
         Context new_context = {};
         new_context.arena = &state->arena;
         PUSH_CONTEXT(new_context);
+        
+        hotloader_init(&state->hotloader);
+        hotloader_register_callback(&state->hotloader, slide_hotloader_callback);
         
         Slideshow* slideshow = &state->slideshow;
         DLIST_INIT(&slideshow->slide_sentinel);
@@ -220,4 +234,6 @@ update_and_render(Application* app, Render_Commands* render_commands, Input* inp
     }
     
     end_render_group(&render_group);
+    
+    while (hotloader_process_change(&state->hotloader));
 }
