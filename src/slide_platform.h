@@ -5,15 +5,10 @@
 #define PLATFORM_DISPLAY_MESSAGE_BOX(name) void name(const char* title, const char* message)
 typedef PLATFORM_DISPLAY_MESSAGE_BOX(Platform_Display_Message_Box);
 
-struct Read_File_Result {
-    u32 contents_size;
-    void* contents;
-};
-
 #define PLATFORM_FREE_FILE_MEMORY(name) void name(void* memory)
 typedef PLATFORM_FREE_FILE_MEMORY(Platform_Free_File_Memory);
 
-#define PLATFORM_READ_ENTIRE_FILE(name) Read_File_Result name(const char* filename)
+#define PLATFORM_READ_ENTIRE_FILE(name) String name(const char* filename)
 typedef PLATFORM_READ_ENTIRE_FILE(Platform_Read_Entrie_File);
 
 #define PLATFORM_WRITE_ENTIRE_FILE(name) b32 name(const char* filename, \
@@ -35,6 +30,8 @@ struct Application {
     
     struct App_State* state;
 };
+
+extern Application* the_app;
 
 #define SLIDE_PLATFORM_H
 #endif // #if !defined(SLIDE_PLATFORM_H)

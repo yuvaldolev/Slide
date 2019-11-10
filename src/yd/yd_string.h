@@ -1,6 +1,7 @@
 #if !defined(YD_STRING)
 
-// TODO(yuval): Add a way to initialize a literal string inplace without calling MakeString
+// TODO(yuval): FIX get_first_double_line & get_next_double_line according to get_first_line
+// and get_next_line
 
 // TODO(yuval): UNIT TESTING  UNIT TESTING  UNIT TESTING  UNIT TESTING  UNIT TESTING  UNIT TESTING
 // UNIT TESTING  UNIT TESTING  UNIT TESTING  UNIT TESTING  UNIT TESTING  UNIT TESTING  UNIT TESTING
@@ -140,6 +141,8 @@ yd_umm find_insensitive(String str, char character, yd_umm start);
 yd_umm find_insensitive(const char* str, String seek, yd_umm start);
 yd_umm find_insensitive(String str, String seek, yd_umm start);
 
+String get_first_line(String source);
+String get_next_line(String source, String line);
 String get_first_double_line(String source);
 String get_next_double_line(String source, String line);
 String get_next_word(String source, String prev_word);
@@ -281,7 +284,7 @@ make_string_slowly(const void* str) {
 
 yd_internal inline yd_b32
 is_null_string(String str) {
-    yd_b32 result = ((str.data = NULL_STRING.data) &&
+    yd_b32 result = ((str.data == NULL_STRING.data) &&
                      (str.count == NULL_STRING.count) &&
                      (str.capacity == NULL_STRING.capacity));
     
@@ -358,7 +361,7 @@ advance_string(String* value, yd_umm count) {
     if (value->count >= count) {
         value->data += count;
         value->count -= count;
-        value->capacity -= (count * sizeof(char));
+        value->capacity -= count;
     } else {
         value->data += value->count;
         value->count = 0;
@@ -2007,6 +2010,52 @@ find_insensitive(String str, String seek, yd_umm start) {
     }
     
     return STRING_NOT_FOUND;
+}
+
+String
+get_first_line(String source) {
+    String result = {};
+    
+    yd_umm pos = find(source, '\n');
+    result = substr(source, 0, pos);
+    
+    if (result.count && (result[result.count - 1] == '\r')) {
+        --result.count;
+    }
+    
+    return result;
+}
+
+String
+get_next_line(String source, String line) {
+    String result = {};
+    
+    yd_umm line_end_index = (yd_umm)(line.data - source.data) + line.count;
+    if (line_end_index < source.count) {
+        yd_umm start = line_end_index;
+        if (source[line_end_index] == '\n') {
+            start += 1;
+        } else if (source[line_end_index] == '\r') {
+            YD_ASSERT(source[line_end_index + 1] == '\n');
+            start += 2;
+        } else {
+            YD_ASSERT(!"Invalid Line End Index!");
+        }
+        
+        if (start < source.count) {
+            yd_umm pos = find(source, BUNDLE_LITERAL("\n"), start);
+            
+            if (pos != STRING_NOT_FOUND) {
+                result = substr(source, start, pos - start);
+                
+                if (result.count && result[result.count - 1] == '\r') {
+                    --result.count;
+                }
+            }
+        }
+    }
+    
+    return result;
 }
 
 String

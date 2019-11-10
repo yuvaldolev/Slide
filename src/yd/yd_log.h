@@ -69,19 +69,19 @@ Log* global_log_list = 0;
 // NOTE(yuval): Exported Function Implementations
 //
 void
-log(const char* ident, const char* message, ...) {
+log(const char* agent, const char* message, ...) {
     char message_format_buffer[1024];
     va_list arg_list;
     
     va_start(arg_list, message);
-    yd_umm result = format_string_list(message_format_buffer,
-                                       sizeof(message_format_buffer),
-                                       message, arg_list);
+    yd_umm ignored_size = format_string_list(message_format_buffer,
+                                             sizeof(message_format_buffer),
+                                             message, arg_list);
     va_end(arg_list);
     
     Log* new_log = PUSH(Log);
     format_string(new_log->message, sizeof(new_log->message),
-                  "%s: %s", ident, message_format_buffer);
+                  "[%s] %s", agent, message_format_buffer);
     new_log->next = global_log_list;
     
     global_log_list = new_log;

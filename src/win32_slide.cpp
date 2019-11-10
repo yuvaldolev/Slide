@@ -21,7 +21,7 @@ internal PLATFORM_FREE_FILE_MEMORY(win32_free_file_memory) {
 }
 
 internal PLATFORM_READ_ENTIRE_FILE(win32_read_entire_file) {
-    Read_File_Result result = {};
+    String result = {};
     
     HANDLE file_handle = CreateFileA(filename, GENERIC_READ,
                                      FILE_SHARE_READ, 0, OPEN_EXISTING,
@@ -31,19 +31,20 @@ internal PLATFORM_READ_ENTIRE_FILE(win32_read_entire_file) {
         LARGE_INTEGER file_size;
         if (GetFileSizeEx(file_handle, &file_size)) {
             u32 file_size_32 = safe_truncate_to_u32(file_size.QuadPart);
-            result.contents = VirtualAlloc(0, file_size_32,
-                                           MEM_RESERVE | MEM_COMMIT,
-                                           PAGE_READWRITE);
+            result.data = (char*)VirtualAlloc(0, file_size_32,
+                                              MEM_RESERVE | MEM_COMMIT,
+                                              PAGE_READWRITE);
             
-            if (result.contents) {
+            if (result.data) {
                 DWORD bytes_read;
-                if (ReadFile(file_handle, result.contents,
+                if (ReadFile(file_handle, result.data,
                              file_size_32, &bytes_read, 0) &&
                     (bytes_read == file_size_32)) {
-                    result.contents_size = file_size_32;
+                    result.count = file_size_32;
+                    result.capacity = file_size_32;
                 } else {
-                    win32_free_file_memory(result.contents);
-                    result.contents = 0;
+                    win32_free_file_memory(result.data);
+                    result.data = 0;
                 }
             }
         }

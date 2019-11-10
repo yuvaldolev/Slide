@@ -174,7 +174,7 @@ win32_pump_notifications(Hotloader* hotloader) {
             YD_ASSERT(success);
             
             // TODO(yuval): Proper logging & a way to to disable this log
-            log("Hotloader", "bytes_transferred = %d (struct size: %d)",
+            log("hotloader", "bytes_transferred = %d (struct size: %d)",
                 bytes_transferred, sizeof(FILE_NOTIFY_INFORMATION));
             
             // NOTE(yuval): Issue Next Read
@@ -197,7 +197,7 @@ win32_pump_notifications(Hotloader* hotloader) {
                     case FILE_ACTION_MODIFIED: { action_name = "MODIFIED"; } break;
                     case FILE_ACTION_RENAMED_NEW_NAME: { action_name = "RENAMED"; } break;
                     default: {
-                        log("Hotloader", "Discarded case %", notify->Action);
+                        log("hotloader", "Discarded case %", notify->Action);
                         
                         // NOTE(yuval): Ignoring REMOVE and RENAMED_OLD_NAME file actions
                         continue;
@@ -217,11 +217,11 @@ win32_pump_notifications(Hotloader* hotloader) {
                     0, 0);
                 
                 if (filename_count == 0) {
-                    log("Hotloader", "WideCharToMultiByte returned empty string");
+                    log("hotloader", "WideCharToMultiByte returned empty string");
                     continue;
                 } else {
                     filename_buffer[filename_count] = 0;
-                    log("Hotloader", "Action '%s' on file '%s'", action_name, filename_buffer);
+                    log("hotloader", "Action '%s' on file '%s'", action_name, filename_buffer);
                 }
                 
                 String filename = {
@@ -286,7 +286,7 @@ win32_pump_notifications(Hotloader* hotloader) {
                 }
                 
                 if (should_reject) {
-                    log("Hotloader", "Rejecting changes to: '%s'", short_name);
+                    log("hotloader", "Rejecting changes to: '%s'", short_name);
                     continue;
                 }
                 

@@ -23,17 +23,6 @@
 #include "slide_fonts.cpp"
 #include "slide_renderer.cpp"
 
-internal HOTLOADER_CALLBACK(slide_hotloader_callback) {
-    if (!handled) {
-        log("hotloader_callback", "Non-catalog asset change '%S'",
-            change->full_name);
-        
-        if (strings_match(change->extension, "slide")) {
-            log("hotloader_callback", "Reloading Slideshow...");
-        }
-    }
-}
-
 internal Slide_Item*
 make_slide_item(Slide_Item_Kind::Type kind, Vector2 pos,
                 Slide_Item* next_item = 0) {
@@ -58,10 +47,84 @@ make_text_item(String text, Vector2 pos = make_v2(0.5f, 0.5f),
     return result;
 }
 
+internal void
+load_slideshow(Slideshow* slideshow, const char* full_path) {
+    const char* AGENT = "load_slideshow";
+    
+    String slide_file = platform.read_entire_file(full_path);
+    
+    if (!is_null_string(slide_file)) {
+        DLIST_INIT(&slideshow->slide_sentinel);
+        Slide* current_slide = 0;
+        Slide_Item* current_slide_item = 0;
+        
+        String line = get_first_line(slide_file);
+        umm line_number = 0;
+        while (!is_null_string(line)) {
+            line = skip_chop_whitespace(line);
+            if (line.count != 0) {
+                if (line[0] != '#') {
+                    if (line[0] == ':') {
+                        // NOTE(yuval): Command Parsing
+                        advance_string(&line, 1);
+                        line = skip_whitespace(line);
+                        
+                        String command = get_first_word(line);
+                        String remainder = get_next_word(line, command);
+                        
+                        if (strings_match(command, "slide")) {
+                            Slide* slide = PUSH(Slide);
+                            DLIST_INSERT_BACK(&slideshow->slide_sentinel, &slide->link);
+                            current_slide = slide;
+                            current_slide_item = 0;
+                        } else {
+                            log(AGENT, "************** UNSUPPORTED COMMAND: %S", command);
+                        }
+                    } else {
+                        // NOTE(yuval): Text Parsing
+                        if (current_slide) {
+                            Slide_Item* text = make_text_item(line);
+                            if (current_slide_item) {
+                                current_slide_item->next = text;
+                            } else {
+                                current_slide->first_item = text;
+                                current_slide_item = text;
+                            }
+                        } else {
+                            log(AGENT, "Error in line: %d: Got text for a slide, but we haven't started any slide yet.",
+                                line_number);
+                        }
+                    }
+                }
+            }
+            
+            line = get_next_line(slide_file, line);
+            ++line_number;
+        }
+        
+        if (current_slide) {
+            slideshow->current_slide = (Slide*)slideshow->slide_sentinel.next;
+        }
+    }
+}
+
+internal HOTLOADER_CALLBACK(slide_hotloader_callback) {
+    if (!handled) {
+        log("hotloader_callback", "Non-catalog asset change '%S'",
+            change->full_name);
+        
+        if (strings_match(change->extension, "slide")) {
+            load_slideshow(&the_app->state->slideshow, change->full_name.data);
+        }
+    }
+}
+
+Application* the_app;
 Platform_Api platform;
 
 internal void
 update_and_render(Application* app, Render_Commands* render_commands, Input* input) {
+    the_app = app;
     platform = app->platform_api;
     
     App_State* state = app->state;
@@ -75,7 +138,9 @@ update_and_render(Application* app, Render_Commands* render_commands, Input* inp
         hotloader_init(&state->hotloader);
         hotloader_register_callback(&state->hotloader, slide_hotloader_callback);
         
-        Slideshow* slideshow = &state->slideshow;
+        load_slideshow( &state->slideshow, "data/slideshows/test.slide");
+        
+#if 0
         DLIST_INIT(&slideshow->slide_sentinel);
         
         // NOTE(yuval): Slide 1
@@ -124,6 +189,7 @@ update_and_render(Application* app, Render_Commands* render_commands, Input* inp
         DLIST_INSERT_BACK(&slideshow->slide_sentinel, &slide4->link);
         
         slideshow->current_slide = slide1;
+#endif // #if 0
     }
     
     Context new_context = {};
