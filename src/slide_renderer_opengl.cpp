@@ -234,13 +234,13 @@ opengl_get_info(b32 is_modern_context) {
             char* ext_name = (char*)glGetStringi(GL_EXTENSIONS,
                                                  extension_index);
             
-            if (strings_match(ext_name, "GL_EXT_texture_sRGB")) {
+            if (match(ext_name, "GL_EXT_texture_sRGB")) {
                 result.opengl_ext_texture_srgb = true;
-            } else if (strings_match(ext_name, "GL_EXT_framebuffer_sRGB")) {
+            } else if (match(ext_name, "GL_EXT_framebuffer_sRGB")) {
                 result.opengl_ext_framebuffer_srgb = true;
-            } else if (strings_match(ext_name, "GL_ARB_framebuffer_sRGB")) {
+            } else if (match(ext_name, "GL_ARB_framebuffer_sRGB")) {
                 result.opengl_ext_framebuffer_srgb = true;
-            } else if (strings_match(ext_name, "GL_ARB_framebuffer_object")) {
+            } else if (match(ext_name, "GL_ARB_framebuffer_object")) {
                 result.opengl_arb_framebuffer_object = true;
             }
         }
@@ -258,8 +258,15 @@ opengl_get_info(b32 is_modern_context) {
     s32 major = 1;
     s32 minor = 1;
     if (minor_at) {
-        major = to_s32(major_at);
-        minor = to_s32(minor_at);
+        S32_Conversion_Result major_result = to_s32(major_at);
+        if (major_result.success) {
+            major = major_result.value;
+        }
+        
+        S32_Conversion_Result minor_result = to_s32(minor_at);
+        if (minor_result.success) {
+            minor = minor_result.value;
+        }
     }
     
     if ((major > 2 ) || ((major == 2) && (minor >= 1))) {

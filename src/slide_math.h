@@ -1,5 +1,11 @@
 #if !defined(SLIDE_MATH_H)
 
+#define MINIMUM(a, b) (((a) < (b)) ? (a) : (b))
+#define MINIMUM3(a, b, c) MINIMUM(MINIMUM((a), (b)), (c))
+
+#define MAXIMUM(a, b) (((a) > (b)) ? (a) : (b))
+#define MAXIMUM3(a, b, c) MAXIMUM(MAXIMUM((a), (b)), (c))
+
 union Vector2 {
     struct {
         f32 x, y;

@@ -58,21 +58,24 @@ load_slideshow(Slideshow* slideshow, const char* full_path) {
         Slide* current_slide = 0;
         Slide_Item* current_slide_item = 0;
         
-        String line = get_first_line(slide_file);
         umm line_number = 0;
-        while (!is_null_string(line)) {
-            line = skip_chop_whitespace(line);
+        for (;;) {
+            String line = consume_line(&slide_file);
+            if (is_null_string(line)) {
+                break;
+            }
+            
+            line = eat_spaces(line);
+            
             if (line.count != 0) {
                 if (line[0] != '#') {
                     if (line[0] == ':') {
                         // NOTE(yuval): Command Parsing
-                        advance_string(&line, 1);
-                        line = skip_whitespace(line);
+                        advance(&line, 1);
+                        line = eat_leading_spaces(line);
                         
-                        String command = get_first_word(line);
-                        String remainder = get_next_word(line, command);
-                        
-                        if (strings_match(command, "slide")) {
+                        String command = consume_word(&line);
+                        if (match(command, "slide")) {
                             Slide* slide = PUSH(Slide);
                             DLIST_INSERT_BACK(&slideshow->slide_sentinel, &slide->link);
                             current_slide = slide;
@@ -98,7 +101,6 @@ load_slideshow(Slideshow* slideshow, const char* full_path) {
                 }
             }
             
-            line = get_next_line(slide_file, line);
             ++line_number;
         }
         
@@ -113,7 +115,7 @@ internal HOTLOADER_CALLBACK(slide_hotloader_callback) {
         log("hotloader_callback", "Non-catalog asset change '%S'",
             change->full_name);
         
-        if (strings_match(change->extension, "slide")) {
+        if (match(change->extension, "slide")) {
             load_slideshow(&the_app->state->slideshow, change->full_name.data);
         }
     }
@@ -134,6 +136,8 @@ update_and_render(Application* app, Render_Commands* render_commands, Input* inp
         Context new_context = {};
         new_context.arena = &state->arena;
         PUSH_CONTEXT(new_context);
+        
+        F32_Conversion_Result result = to_f32(BUNDLE_LITERAL("-0.5668"));
         
         hotloader_init(&state->hotloader);
         hotloader_register_callback(&state->hotloader, slide_hotloader_callback);

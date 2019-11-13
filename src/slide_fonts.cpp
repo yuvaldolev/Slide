@@ -47,7 +47,7 @@ get_font_at_size(const char* directory, const char* name, u32 size) {
          at = at->next) {
         Font* font = &at->font;
         
-        if (strings_match(font->name, name) &&
+        if (match(font->name, name) &&
             font->size == size) {
             result = font;
             break;

@@ -1,6 +1,3 @@
-#define MINIMUM(a, b) ((a < b) ? (a) : (b))
-#define MAXIMUM(a, b) ((a > b) ? (a) : (b))
-
 //
 // NOTE(yuval): Scalar Operations
 //

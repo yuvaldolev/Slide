@@ -1,14 +1,14 @@
 #if !defined(YD_STRING)
 
-// TODO(yuval): FIX get_first_double_line & get_next_double_line according to get_first_line
-// and get_next_line
-
 // TODO(yuval): UNIT TESTING  UNIT TESTING  UNIT TESTING  UNIT TESTING  UNIT TESTING  UNIT TESTING
 // UNIT TESTING  UNIT TESTING  UNIT TESTING  UNIT TESTING  UNIT TESTING  UNIT TESTING  UNIT TESTING
 
 // TODO(yuval): MAKE THE CODE MORE ROBUST: Check for null pointers and so on....
 
-// TODO(yuval): Create/Modify find/replace functions to work with char* strings with the same
+// TODO(yuval): to_s32 function is incorrent. Right now it does not handle negative numbers.
+// fix that...
+
+// TODO(yuval): Create / modify find / replace functions that work with char* strings with the same
 // speed as with my strings
 
 // TODO(yuval): Number To String Conversion For Different Bases
@@ -45,9 +45,33 @@ typedef uintptr_t yd_umm;
 #define YD_TYPES
 #endif // #if !defined(YD_TYPES)
 
+//
+// NOTE(yuval): Utility Macros
+//
+
 #if !defined(YD_ASSERT)
 # define YD_ASSERT(expression) if (!(expression)) { *(volatile int*)0 = 0; }
 #endif // #if !defined(YD_ASSERT)
+
+#if !defined(YD_MINIMUM)
+# define YD_MINIMUM(a, b) (((a) < (b)) ? (a) : (b))
+#endif // #if !defined(YD_MINIMUM)
+
+#if !defined(YD_MINIMUM3)
+# define YD_MINIMUM3(a, b, c) YD_MINIMUM(YD_MINIMUM((a), (b)), (c))
+#endif // #if !defined(YD_MINIMUM3)
+
+#if !defined(YD_MAXIMUM)
+# define YD_MAXIMUM(a, b) (((a) > (b)) ? (a) : (b))
+#endif // #if !defined(YD_MAXIMUM)
+
+#if !defined(YD_MAXIMUM3)
+# define YD_MAXIMUM3(a, b, c) YD_MAXIMUM(YD_MAXIMUM((a), (b)), (c))
+#endif // #if !defined(YD_MAXIMUM3)
+
+//
+// NOTE(yuval): Type Definitions
+//
 
 struct String {
     char* data;
@@ -67,6 +91,26 @@ struct String {
         const char& result = data[index];
         return result;
     }
+};
+
+struct U64_Conversion_Result {
+    yd_u64 value;
+    yd_b32 success;
+};
+
+struct U32_Conversion_Result {
+    yd_u32 value;
+    yd_b32 success;
+};
+
+struct S32_Conversion_Result {
+    yd_s32 value;
+    yd_b32 success;
+};
+
+struct F32_Conversion_Result {
+    yd_f32 value;
+    yd_b32 success;
 };
 
 // TODO(yuval): Maybe create A UTF8 string struct
@@ -98,27 +142,24 @@ yd_global const yd_umm STRING_NOT_FOUND = (yd_umm)-1;
 // NOTE(yuval): Public API Function Declarations
 //
 
-String skip_whitespace(String str, yd_umm* out_skip_count);
-String chop_whitespace(String str);
-
-yd_b32 strings_match(const char* a, const char* b);
-yd_b32 strings_match(String a, const char* b);
-yd_b32 strings_match(String a, String b);
-yd_b32 strings_match(const char* a, yd_umm a_count, const char* b);
-yd_b32 strings_match(const char* a, yd_umm a_count,
-                     const char* b, yd_umm b_count);
-yd_b32 strings_match(String a, const char* b, yd_umm count);
-yd_b32 strings_match_part(const char* a, const char* b, yd_umm* out_count);
-yd_b32 strings_match_part(String a, const char* b, yd_umm* out_count);
-yd_b32 strings_match_part(const char* a, String b, yd_umm* out_count);
-yd_b32 strings_match_part(String a, String b, yd_umm* out_count);
-yd_b32 strings_match_insensitive(const char* a, const char* b);
-yd_b32 strings_match_insensitive(String a, const char* b);
-yd_b32 strings_match_insensitive(String a, String b);
-yd_b32 strings_match_part_insensitive(const char* a, const char* b, yd_umm* out_count);
-yd_b32 strings_match_part_insensitive(String a, const char* b, yd_umm* out_count);
-yd_b32 strings_match_part_insensitive(const char* a, String b, yd_umm* out_count);
-yd_b32 strings_match_part_insensitive(String a, String b, yd_umm* out_count);
+yd_b32 match(const char* a, const char* b);
+yd_b32 match(String a, const char* b);
+yd_b32 match(String a, String b);
+yd_b32 match(const char* a, yd_umm a_count, const char* b);
+yd_b32 match(const char* a, yd_umm a_count,
+             const char* b, yd_umm b_count);
+yd_b32 match(String a, const char* b, yd_umm count);
+yd_b32 match_part(const char* a, const char* b, yd_umm* out_count);
+yd_b32 match_part(String a, const char* b, yd_umm* out_count);
+yd_b32 match_part(const char* a, String b, yd_umm* out_count);
+yd_b32 match_part(String a, String b, yd_umm* out_count);
+yd_b32 match_insensitive(const char* a, const char* b);
+yd_b32 match_insensitive(String a, const char* b);
+yd_b32 match_insensitive(String a, String b);
+yd_b32 match_part_insensitive(const char* a, const char* b, yd_umm* out_count);
+yd_b32 match_part_insensitive(String a, const char* b, yd_umm* out_count);
+yd_b32 match_part_insensitive(const char* a, String b, yd_umm* out_count);
+yd_b32 match_part_insensitive(String a, String b, yd_umm* out_count);
 yd_b32 string_set_match(void* str_set, yd_umm item_size, yd_umm count,
                         String str, yd_umm* out_match_index);
 
@@ -141,11 +182,11 @@ yd_umm find_insensitive(String str, char character, yd_umm start);
 yd_umm find_insensitive(const char* str, String seek, yd_umm start);
 yd_umm find_insensitive(String str, String seek, yd_umm start);
 
-String get_first_line(String source);
-String get_next_line(String source, String line);
-String get_first_double_line(String source);
-String get_next_double_line(String source, String line);
-String get_next_word(String source, String prev_word);
+String eat_leading_spaces(String str);
+String eat_trailing_spaces(String str);
+String consume_word(String* source);
+String consume_line(String* source);
+String consume_double_line(String* source);
 
 yd_umm copy_fast_unsafe(char* dest, const char* source);
 yd_umm copy_fast_unsafe(char* dest, String source);
@@ -201,17 +242,19 @@ void to_camel(char* dest, const char* source);
 void to_camel(String* dest, const char* source);
 void to_camel(char* dest, String source);
 void to_camel(String* dest, String source);
-yd_umm u64_to_string_count(yd_u64 value);
-yd_b32 u64_to_string(String* dest, yd_u64 value);
-yd_b32 append_u64_to_string(String* dest, yd_u64 value);
-yd_u64 to_u64(const char* str);
-yd_u64 to_u64(String str);
-yd_umm s32_to_string_count(yd_s32 value);
-yd_b32 s32_to_string(String* dest, yd_s32 value);
-yd_b32 append_s32_to_string(String* dest, yd_s32 value);
-yd_umm f32_to_string_count(yd_f32 value, yd_u32 max_precision);
-yd_b32 f32_to_string(String* dest, yd_f32 value, yd_u32 max_precision);
-yd_b32 append_f32_to_string(String* dest, yd_f32 value, yd_u32 max_precision);
+yd_umm to_string_count(yd_u64 value);
+yd_b32 to_string(String* dest, yd_u64 value);
+yd_b32 append(String* dest, yd_u64 value);
+U64_Conversion_Result to_u64(const char* str);
+U64_Conversion_Result to_u64(String str);
+yd_umm to_string_count(yd_s32 value);
+yd_b32 to_string(String* dest, yd_s32 value);
+yd_b32 append(String* dest, yd_s32 value);
+yd_umm to_string_count(yd_f32 value, yd_u32 max_precision);
+yd_b32 to_string(String* dest, yd_f32 value, yd_u32 max_precision);
+yd_b32 append(String* dest, yd_f32 value, yd_u32 max_precision);
+F32_Conversion_Result to_f32(const char* str);
+F32_Conversion_Result to_f32(String str);
 yd_u32 hex_string_to_u32(String str);
 yd_b32 color_to_hex_string(String* dest, yd_u32 color);
 yd_b32 hex_string_to_color(yd_u32* dest, String str);
@@ -283,6 +326,12 @@ make_string_slowly(const void* str) {
 //
 
 yd_internal inline yd_b32
+is_empty(String str) {
+    yd_b32 result = (str.count == 0);
+    return result;
+}
+
+yd_internal inline yd_b32
 is_null_string(String str) {
     yd_b32 result = ((str.data == NULL_STRING.data) &&
                      (str.count == NULL_STRING.count) &&
@@ -326,23 +375,9 @@ substr(String str, yd_umm start, yd_umm count) {
 }
 
 yd_internal inline String
-skip_whitespace(String str) {
-    yd_umm ignored;
-    String result = skip_whitespace(str, &ignored);
-    return result;
-}
-
-yd_internal inline String
-skip_chop_whitespace(String str, yd_umm* out_skip_count) {
-    String result = skip_whitespace(str, out_skip_count);
-    result = chop_whitespace(result);
-    return result;
-}
-
-yd_internal inline String
-skip_chop_whitespace(String str) {
-    yd_umm ignored;
-    String result = skip_chop_whitespace(str, &ignored);
+eat_spaces(String str) {
+    String result = eat_leading_spaces(str);
+    result = eat_trailing_spaces(result);
     return result;
 }
 
@@ -357,7 +392,7 @@ tailstr(String str) {
 }
 
 yd_internal inline void
-advance_string(String* value, yd_umm count) {
+advance(String* value, yd_umm count) {
     if (value->count >= count) {
         value->data += count;
         value->count -= count;
@@ -374,82 +409,82 @@ advance_string(String* value, yd_umm count) {
 //
 
 yd_internal inline yd_b32
-strings_match(const char* a, String b) {
-    yd_b32 result = strings_match(b, a);
+match(const char* a, String b) {
+    yd_b32 result = match(b, a);
     return result;
 }
 
 yd_internal inline yd_b32
-strings_match(const char* a, const char* b, yd_umm b_count) {
-    yd_b32 result = strings_match(b, b_count, a);
+match(const char* a, const char* b, yd_umm b_count) {
+    yd_b32 result = match(b, b_count, a);
     return result;
 }
 
 yd_internal inline yd_b32
-strings_match(const char* a, String b, yd_umm count) {
-    yd_b32 result = strings_match(b, a, count);
+match(const char* a, String b, yd_umm count) {
+    yd_b32 result = match(b, a, count);
     return result;
 }
 
 yd_internal inline yd_b32
-strings_match_part(const char* a, const char* b) {
+match_part(const char* a, const char* b) {
     yd_umm ignored;
-    yd_b32 result = strings_match_part(a, b, &ignored);
+    yd_b32 result = match_part(a, b, &ignored);
     return result;
 }
 
 yd_internal inline yd_b32
-strings_match_part(String a, const char* b) {
+match_part(String a, const char* b) {
     yd_umm ignored;
-    yd_b32 result = strings_match_part(a, b, &ignored);
+    yd_b32 result = match_part(a, b, &ignored);
     return result;
 }
 
 yd_internal inline yd_b32
-strings_match_part(const char* a, String b) {
+match_part(const char* a, String b) {
     yd_umm ignored;
-    yd_b32 result = strings_match_part(a, b, &ignored);
+    yd_b32 result = match_part(a, b, &ignored);
     return result;
 }
 
 yd_internal inline yd_b32
-strings_match_part(String a, String b) {
+match_part(String a, String b) {
     yd_umm ignored;
-    yd_b32 result = strings_match_part(a, b, &ignored);
+    yd_b32 result = match_part(a, b, &ignored);
     return result;
 }
 
 yd_internal inline yd_b32
-strings_match_insensitive(const char* a, String b) {
-    yd_b32 result = strings_match_insensitive(b, a);
+match_insensitive(const char* a, String b) {
+    yd_b32 result = match_insensitive(b, a);
     return result;
 }
 
 yd_internal inline yd_b32
-strings_match_part_insensitive(const char* a, const char* b) {
+match_part_insensitive(const char* a, const char* b) {
     yd_umm ignored;
-    yd_b32 result = strings_match_part_insensitive(a, b, &ignored);
+    yd_b32 result = match_part_insensitive(a, b, &ignored);
     return result;
 }
 
 yd_internal inline yd_b32
-strings_match_part_insensitive(String a, const char* b) {
+match_part_insensitive(String a, const char* b) {
     yd_umm ignored;
-    yd_b32 result = strings_match_part_insensitive(a, b, &ignored);
+    yd_b32 result = match_part_insensitive(a, b, &ignored);
     return result;
 }
 
 yd_internal inline yd_b32
-strings_match_part_insensitive(const char* a, String b) {
+match_part_insensitive(const char* a, String b) {
     yd_umm ignored;
-    yd_b32 result = strings_match_part_insensitive(a, b, &ignored);
+    yd_b32 result = match_part_insensitive(a, b, &ignored);
     return result;
 }
 
 yd_internal inline yd_b32
-strings_match_part_insensitive(String a, String b) {
+match_part_insensitive(String a, String b) {
     yd_umm ignored;
-    yd_b32 result = strings_match_part_insensitive(a, b, &ignored);
+    yd_b32 result = match_part_insensitive(a, b, &ignored);
     return result;
 }
 
@@ -576,13 +611,6 @@ has_substr_insensitive(const char* str, String seek) {
 yd_internal inline yd_b32
 has_substr_insensitive(String str, String seek) {
     yd_b32 result = (find_insensitive(str, seek) != STRING_NOT_FOUND);
-    return result;
-}
-
-yd_internal inline String
-get_first_word(String source) {
-    String start = make_string(source.data, 0);
-    String result = get_next_word(source, start);
     return result;
 }
 
@@ -916,20 +944,20 @@ is_numeric_utf8(yd_u8 c) {
 }
 
 yd_internal inline yd_umm
-f32_to_string_count(yd_f32 value) {
-    yd_umm result = f32_to_string_count(value, 8);
+to_string_count(yd_f32 value) {
+    yd_umm result = to_string_count(value, 8);
     return result;
 }
 
 yd_internal inline yd_b32
-f32_to_string(String* dest, yd_f32 value) {
-    yd_b32 result = f32_to_string(dest, value, 8);
+to_string(String* dest, yd_f32 value) {
+    yd_b32 result = to_string(dest, value, 8);
     return result;
 }
 
 yd_internal inline yd_b32
-append_f32_to_string(String* dest, yd_f32 value) {
-    yd_b32 result = append_f32_to_string(dest, value, 8);
+append(String* dest, yd_f32 value) {
+    yd_b32 result = append(dest, value, 8);
     return result;
 }
 
@@ -1014,27 +1042,47 @@ is_alpha_numeric_true_utf8(yd_u8 c) {
     return result;
 }
 
-yd_internal inline yd_u32
+yd_internal inline U32_Conversion_Result
 to_u32(const char* str) {
-    yd_u32 result = (yd_u32)to_u64(str);
+    U64_Conversion_Result u64_result = to_u64(str);
+    U32_Conversion_Result result = {
+        (yd_u32)u64_result.value,
+        u64_result.success
+    };
+    
     return result;
 }
 
-yd_internal inline yd_u32
+yd_internal inline U32_Conversion_Result
 to_u32(String str) {
-    yd_u32 result = (yd_u32)to_u64(str);
+    U64_Conversion_Result u64_result = to_u64(str);
+    U32_Conversion_Result result = {
+        (yd_u32)u64_result.value,
+        u64_result.success
+    };
+    
     return result;
 }
 
-yd_internal inline yd_s32
+yd_internal inline S32_Conversion_Result
 to_s32(const char* str) {
-    yd_s32 result = (yd_s32)to_u64(str);
+    U64_Conversion_Result u64_result = to_u64(str);
+    S32_Conversion_Result result = {
+        (yd_s32)u64_result.value,
+        u64_result.success
+    };
+    
     return result;
 }
 
-yd_internal inline yd_s32
+yd_internal inline S32_Conversion_Result
 to_s32(String str) {
-    yd_s32 result = (yd_s32)to_u64(str);
+    U64_Conversion_Result u64_result = to_u64(str);
+    S32_Conversion_Result result = {
+        (yd_s32)u64_result.value,
+        u64_result.success
+    };
+    
     return result;
 }
 
@@ -1144,94 +1192,94 @@ path_of_directory(String dir) {
 
 yd_internal inline yd_b32
 is_h(String extension) {
-    yd_b32 result = (strings_match(extension, "h") ||
-                     strings_match(extension, "hpp") ||
-                     strings_match(extension, "hin"));
+    yd_b32 result = (match(extension, "h") ||
+                     match(extension, "hpp") ||
+                     match(extension, "hin"));
     return result;
 }
 
 yd_internal inline yd_b32
 is_c(String extension) {
-    yd_b32 result = strings_match(extension, "c");
+    yd_b32 result = match(extension, "c");
     return result;
 }
 
 yd_internal inline yd_b32
 is_cpp(String extension) {
-    yd_b32 result = (strings_match(extension, "cpp") ||
-                     strings_match(extension, "cc") ||
-                     strings_match(extension, "cin"));
+    yd_b32 result = (match(extension, "cpp") ||
+                     match(extension, "cc") ||
+                     match(extension, "cin"));
     return result;
 }
 
 yd_internal inline yd_b32
 is_objective_c(String extension) {
-    yd_b32 result = (strings_match(extension, "m") ||
-                     strings_match(extension, "mm"));
+    yd_b32 result = (match(extension, "m") ||
+                     match(extension, "mm"));
     return result;
 }
 
 yd_internal inline yd_b32
 is_shader(String extension) {
-    yd_b32 result = (strings_match(extension, "ps") ||
-                     strings_match(extension, "vs") ||
-                     strings_match(extension, "cs") ||
-                     strings_match(extension, "ts") ||
-                     strings_match(extension, "gs"));
+    yd_b32 result = (match(extension, "ps") ||
+                     match(extension, "vs") ||
+                     match(extension, "cs") ||
+                     match(extension, "ts") ||
+                     match(extension, "gs"));
     return result;
 }
 
 yd_internal inline yd_b32
 is_inl(String extension) {
-    yd_b32 result = strings_match(extension, "inl");
+    yd_b32 result = match(extension, "inl");
     return result;
 }
 
 yd_internal inline yd_b32
 is_java(String extension) {
-    yd_b32 result = strings_match(extension, "java");
+    yd_b32 result = match(extension, "java");
     return result;
 }
 
 yd_internal inline yd_b32
 is_csharp(String extension) {
-    yd_b32 result = strings_match(extension, "cs");
+    yd_b32 result = match(extension, "cs");
     return result;
 }
 
 yd_internal inline yd_b32
 is_python(String extension) {
-    yd_b32 result = strings_match(extension, "py");
+    yd_b32 result = match(extension, "py");
     return result;
 }
 
 yd_internal inline yd_b32
 is_swift(String extension) {
-    yd_b32 result = strings_match(extension, "swift");
+    yd_b32 result = match(extension, "swift");
     return result;
 }
 
 yd_internal inline yd_b32
 is_javascript(String extension) {
-    yd_b32 result = strings_match(extension, "js");
+    yd_b32 result = match(extension, "js");
     return result;
 }
 
 yd_internal inline yd_b32
 is_bat(String extension) {
-    yd_b32 result = strings_match(extension, "bat");
+    yd_b32 result = match(extension, "bat");
     return result;
 }
 
 yd_internal inline yd_b32
 is_bash(String extension) {
-    yd_b32 result = strings_match(extension, "sh");
+    yd_b32 result = match(extension, "sh");
     return result;
 }
 
 yd_internal inline yd_b32
 is_txt(String extension) {
-    yd_b32 result = strings_match(extension, "txt");
+    yd_b32 result = match(extension, "txt");
     return result;
 }
 
@@ -1275,35 +1323,11 @@ is_doc_file(String filename) {
 #if defined(YD_STRING_IMPLEMENTATION)
 
 //
-// NOTE(yuval): String Slicing Functions
-//
-
-String
-skip_whitespace(String str, yd_umm* out_skip_count) {
-    yd_umm skip_count = 0;
-    for (; skip_count < str.count && is_whitespace(str.data[skip_count]); ++skip_count);
-    
-    *out_skip_count = skip_count;
-    String result = substr(str, skip_count);
-    
-    return result;
-}
-
-String
-chop_whitespace(String str) {
-    yd_umm chop_index = str.count;
-    for (; chop_index > 0 && is_whitespace(str.data[chop_index - 1]); --chop_index);
-    
-    String result = substr(str, 0, chop_index);
-    return result;
-}
-
-//
 // NOTE(yuval): String Comparison Functions
 //
 
 yd_b32
-strings_match(const char* a, const char* b) {
+match(const char* a, const char* b) {
     yd_b32 result = (a == b);
     
     if (a && b) {
@@ -1319,7 +1343,7 @@ strings_match(const char* a, const char* b) {
 }
 
 yd_b32
-strings_match(String a, const char* b) {
+match(String a, const char* b) {
     yd_b32 result = false;
     
     if (b) {
@@ -1340,7 +1364,7 @@ strings_match(String a, const char* b) {
 }
 
 yd_b32
-strings_match(String a, String b) {
+match(String a, String b) {
     yd_b32 result = (a.count == b.count);
     
     if (result) {
@@ -1356,7 +1380,7 @@ strings_match(String a, String b) {
 }
 
 yd_b32
-strings_match(const char* a, yd_umm a_count, const char* b) {
+match(const char* a, yd_umm a_count, const char* b) {
     yd_b32 result = false;
     
     if (b) {
@@ -1377,8 +1401,8 @@ strings_match(const char* a, yd_umm a_count, const char* b) {
 }
 
 yd_b32
-strings_match(const char* a, yd_umm a_count,
-              const char* b, yd_umm b_count) {
+match(const char* a, yd_umm a_count,
+      const char* b, yd_umm b_count) {
     yd_b32 result = (a_count == b_count);
     
     if (result) {
@@ -1394,7 +1418,7 @@ strings_match(const char* a, yd_umm a_count,
 }
 
 yd_b32
-strings_match(String a, const char* b, yd_umm count) {
+match(String a, const char* b, yd_umm count) {
     yd_b32 result = true;
     
     for (yd_umm index = 0; index < count; ++index) {
@@ -1408,7 +1432,7 @@ strings_match(String a, const char* b, yd_umm count) {
 }
 
 yd_b32
-strings_match_part(const char* a, const char* b, yd_umm* out_count) {
+match_part(const char* a, const char* b, yd_umm* out_count) {
     yd_b32 result = (*a == *b);
     yd_umm match_count = 0;
     
@@ -1427,7 +1451,7 @@ strings_match_part(const char* a, const char* b, yd_umm* out_count) {
 }
 
 yd_b32
-strings_match_part(String a, const char* b, yd_umm* out_count) {
+match_part(String a, const char* b, yd_umm* out_count) {
     yd_b32 result = false;
     yd_umm index = 0;
     
@@ -1449,7 +1473,7 @@ strings_match_part(String a, const char* b, yd_umm* out_count) {
 }
 
 yd_b32
-strings_match_part(const char* a, String b, yd_umm* out_count) {
+match_part(const char* a, String b, yd_umm* out_count) {
     yd_b32 result = false;
     yd_umm index = 0;
     
@@ -1471,7 +1495,7 @@ strings_match_part(const char* a, String b, yd_umm* out_count) {
 }
 
 yd_b32
-strings_match_part(String a, String b, yd_umm* out_count) {
+match_part(String a, String b, yd_umm* out_count) {
     yd_b32 result = (a.count >= b.count);
     yd_umm index = 0;
     
@@ -1489,7 +1513,7 @@ strings_match_part(String a, String b, yd_umm* out_count) {
 }
 
 yd_b32
-strings_match_insensitive(const char* a, const char* b) {
+match_insensitive(const char* a, const char* b) {
     yd_b32 result = (a == b);
     
     if (a && b) {
@@ -1505,7 +1529,7 @@ strings_match_insensitive(const char* a, const char* b) {
 }
 
 yd_b32
-strings_match_insensitive(String a, const char* b) {
+match_insensitive(String a, const char* b) {
     yd_b32 result = false;
     
     if (b) {
@@ -1526,7 +1550,7 @@ strings_match_insensitive(String a, const char* b) {
 }
 
 yd_b32
-strings_match_insensitive(String a, String b) {
+match_insensitive(String a, String b) {
     yd_b32 result = (a.count == b.count);
     
     if (result) {
@@ -1542,7 +1566,7 @@ strings_match_insensitive(String a, String b) {
 }
 
 yd_b32
-strings_match_part_insensitive(const char* a, const char* b, yd_umm* out_count) {
+match_part_insensitive(const char* a, const char* b, yd_umm* out_count) {
     yd_b32 result = (*a == *b);
     yd_umm match_count = 0;
     
@@ -1561,7 +1585,7 @@ strings_match_part_insensitive(const char* a, const char* b, yd_umm* out_count) 
 }
 
 yd_b32
-strings_match_part_insensitive(String a, const char* b, yd_umm* out_count) {
+match_part_insensitive(String a, const char* b, yd_umm* out_count) {
     yd_b32 result = false;
     yd_umm index = 0;
     
@@ -1582,7 +1606,7 @@ strings_match_part_insensitive(String a, const char* b, yd_umm* out_count) {
     return result;
 }
 yd_b32
-strings_match_part_insensitive(const char* a, String b, yd_umm* out_count) {
+match_part_insensitive(const char* a, String b, yd_umm* out_count) {
     yd_b32 result = false;
     yd_umm index = 0;
     
@@ -1603,7 +1627,7 @@ strings_match_part_insensitive(const char* a, String b, yd_umm* out_count) {
 }
 
 yd_b32
-strings_match_part_insensitive(String a, String b, yd_umm* out_count) {
+match_part_insensitive(String a, String b, yd_umm* out_count) {
     yd_b32 result = (a.count >= b.count);
     yd_umm index = 0;
     
@@ -1627,7 +1651,7 @@ string_set_match(void* str_set, yd_umm item_size, yd_umm count,
     yd_u8* at = (yd_u8*)str_set;
     
     for (yd_umm index = 0; index < count; ++index, at += item_size) {
-        if (strings_match(*((String*)at), str)) {
+        if (match(*((String*)at), str)) {
             *out_match_index = index;
             result = true;
             break;
@@ -2012,119 +2036,108 @@ find_insensitive(String str, String seek, yd_umm start) {
     return STRING_NOT_FOUND;
 }
 
+//
+// NOTE(yuval): String Slicing Functions
+//
+
 String
-get_first_line(String source) {
-    String result = {};
+eat_leading_spaces(String str) {
+    yd_umm skip_count = 0;
+    for (; skip_count < str.count && is_whitespace(str.data[skip_count]); ++skip_count);
     
-    yd_umm pos = find(source, '\n');
-    result = substr(source, 0, pos);
-    
-    if (result.count && (result[result.count - 1] == '\r')) {
-        --result.count;
-    }
+    String result = substr(str, skip_count);
     
     return result;
 }
 
 String
-get_next_line(String source, String line) {
-    String result = {};
+eat_trailing_spaces(String str) {
+    yd_umm chop_index = str.count;
+    for (; chop_index > 0 && is_whitespace(str.data[chop_index - 1]); --chop_index);
     
-    yd_umm line_end_index = (yd_umm)(line.data - source.data) + line.count;
-    if (line_end_index < source.count) {
-        yd_umm start = line_end_index;
-        if (source[line_end_index] == '\n') {
-            start += 1;
-        } else if (source[line_end_index] == '\r') {
-            YD_ASSERT(source[line_end_index + 1] == '\n');
-            start += 2;
-        } else {
-            YD_ASSERT(!"Invalid Line End Index!");
-        }
-        
-        if (start < source.count) {
-            yd_umm pos = find(source, BUNDLE_LITERAL("\n"), start);
-            
-            if (pos != STRING_NOT_FOUND) {
-                result = substr(source, start, pos - start);
-                
-                if (result.count && result[result.count - 1] == '\r') {
-                    --result.count;
-                }
-            }
-        }
-    }
-    
+    String result = substr(str, 0, chop_index);
     return result;
 }
 
 String
-get_first_double_line(String source) {
+consume_word(String* source) {
     String result = {};
     
-    yd_umm pos = find(source, BUNDLE_LITERAL("\n\n"));
-    if (pos == STRING_NOT_FOUND) {
-        pos = find(source, BUNDLE_LITERAL("\r\n\r\n"));
-    }
-    
-    if (pos != STRING_NOT_FOUND) {
-        result = substr(source, 0, pos);
-    }
-    
-    return result;
-}
-
-String
-get_next_double_line(String source, String line) {
-    String result = {};
-    
-    yd_umm line_end_index = (yd_umm)(line.data - source.data) + line.count;
-    YD_ASSERT((source.data[line_end_index] == '\n') || (source.data[line_end_index] == '\r'));
-    
-    ++line_end_index;
-    YD_ASSERT((source.data[line_end_index] == '\n') || (source.data[line_end_index] == '\r'));
-    
-    yd_umm start = line_end_index + 1;
-    
-    if (start < source.count) {
-        yd_umm pos = find(source, BUNDLE_LITERAL("\n\n"), start);
-        if (pos == STRING_NOT_FOUND) {
-            pos = find(source, BUNDLE_LITERAL("\r\n\r\n"), start);
-        }
-        
-        if (pos != STRING_NOT_FOUND) {
-            result = substr(source, start, pos - start);
-        }
-    }
-    
-    return result;
-}
-
-String
-get_next_word(String source, String prev_word) {
-    String result = {};
-    yd_umm pos0 = (yd_umm)(prev_word.data - source.data) + prev_word.count;
-    
-    for (; pos0 < source.count; ++pos0) {
-        char c = source.data[pos0];
-        if (!(is_whitespace(c) || c == '(' || c == ')')) {
+    yd_umm pos0 = 0;
+    for (; pos0 < source->count; ++pos0) {
+        char c = source->data[pos0];
+        if (!(is_whitespace(c) || (c == '(') || (c == ')'))) {
             break;
         }
     }
     
-    if (pos0 < source.count) {
+    if (pos0 < source->count) {
         yd_umm pos1 = pos0;
         
-        for (; pos1 < source.count; ++pos1) {
-            char c = source.data[pos1];
+        for (; pos1 < source->count; ++pos1) {
+            char c = source->data[pos1];
             if (is_whitespace(c) || c == '(' || c == ')') {
                 break;
             }
         }
         
-        result = substr(source, pos0, pos1 - pos0);
+        result = substr(*source, pos0, pos1 - pos0);
+        
+        advance(source, pos1 + 1);
+    } else {
+        advance(source, source->count);
     }
     
+    return result;
+}
+
+String
+consume_line(String* source) {
+    String result = {};
+    
+    if (!is_empty(*source)) {
+        yd_umm pos = find(*source, '\n');
+        result = substr(*source, 0, pos);
+        
+        advance(source, result.count + 1);
+        
+        if (result.count && (result[result.count - 1] == '\r')) {
+            --result.count;
+        }
+    }
+    
+    return result;
+}
+
+String
+consume_double_line(String* source) {
+    String result = {};
+    
+    String nl_nl = BUNDLE_LITERAL("\n\n");
+    yd_umm nl_nl_pos = find(*source, nl_nl);
+    
+    String rnl_rnl = BUNDLE_LITERAL("\r\n\r\n");
+    yd_umm rnl_rnl_pos = find(*source, rnl_rnl);
+    
+    if ((nl_nl_pos == STRING_NOT_FOUND) &&
+        (rnl_rnl_pos == STRING_NOT_FOUND)) {
+        result = *source;
+        advance(source, source->count);
+    } else {
+        yd_umm pos;
+        yd_umm advance_count;
+        if (nl_nl_pos < rnl_rnl_pos) {
+            pos = nl_nl_pos;
+            advance_count = nl_nl.count;
+        } else {
+            pos = rnl_rnl_pos;
+            advance_count = rnl_rnl.count;
+        }
+        
+        result = substr(*source, 0, pos);
+        
+        advance(source, result.count + advance_count);
+    }
     return result;
 }
 
@@ -2808,7 +2821,7 @@ to_camel(String* dest, String source) {
 }
 
 yd_umm
-u64_to_string_count(yd_u64 value) {
+to_string_count(yd_u64 value) {
     yd_umm count = 1;
     
     value /= 10;
@@ -2821,7 +2834,7 @@ u64_to_string_count(yd_u64 value) {
 }
 
 yd_b32
-u64_to_string(String* dest, yd_u64 value) {
+to_string(String* dest, yd_u64 value) {
     yd_b32 result = false;
     yd_umm count = 0;
     
@@ -2856,9 +2869,9 @@ u64_to_string(String* dest, yd_u64 value) {
 }
 
 yd_b32
-append_u64_to_string(String* dest, yd_u64 value) {
+append(String* dest, yd_u64 value) {
     String tail = tailstr(*dest);
-    yd_b32 result = u64_to_string(&tail, value);
+    yd_b32 result = to_string(&tail, value);
     
     if (result) {
         dest->count += tail.count;
@@ -2867,16 +2880,17 @@ append_u64_to_string(String* dest, yd_u64 value) {
     return result;
 }
 
-yd_u64
+U64_Conversion_Result
 to_u64(const char* str) {
-    yd_u64 result = 0;
+    U64_Conversion_Result result = {0, true};
     
     for (const char* at = str; *at; ++at) {
         if (is_numeric(*at)) {
-            result *= 10;
-            result += (*at - 0);
+            result.value *= 10;
+            result.value += (*at - '0');
         } else {
-            result = 0;
+            result.value = 0;
+            result.success = false;
             break;
         }
     }
@@ -2884,16 +2898,17 @@ to_u64(const char* str) {
     return result;
 }
 
-yd_u64
+U64_Conversion_Result
 to_u64(String str) {
-    yd_u64 result = 0;
+    U64_Conversion_Result result = {0, true};
     
     for (yd_umm index = 0; index < str.count; ++index) {
         if (is_numeric(str.data[index])) {
-            result *= 10;
-            result += (str.data[index] - '0');
+            result.value *= 10;
+            result.value += (str.data[index] - '0');
         } else {
-            result = 0;
+            result.value = 0;
+            result.success = false;
             break;
         }
     }
@@ -2902,7 +2917,7 @@ to_u64(String str) {
 }
 
 yd_umm
-s32_to_string_count(yd_s32 value) {
+to_string_count(yd_s32 value) {
     yd_umm count = 1;
     
     if (value < 0) {
@@ -2919,7 +2934,7 @@ s32_to_string_count(yd_s32 value) {
 }
 
 yd_b32
-s32_to_string(String* dest, yd_s32 value) {
+to_string(String* dest, yd_s32 value) {
     yd_b32 result = true;
     
     dest->count = 0;
@@ -2934,16 +2949,16 @@ s32_to_string(String* dest, yd_s32 value) {
     }
     
     if (result) {
-        result = append_u64_to_string(dest, (yd_u64)value);
+        result = append(dest, (yd_u64)value);
     }
     
     return result;
 }
 
 yd_b32
-append_s32_to_string(String* dest, yd_s32 value) {
+append(String* dest, yd_s32 value) {
     String tail = tailstr(*dest);
-    yd_b32 result = s32_to_string(&tail, value);
+    yd_b32 result = to_string(&tail, value);
     
     if (result) {
         dest->count += tail.count;
@@ -2953,7 +2968,7 @@ append_s32_to_string(String* dest, yd_s32 value) {
 }
 
 yd_umm
-f32_to_string_count(yd_f32 value, yd_u32 max_precision) {
+to_string_count(yd_f32 value, yd_u32 max_precision) {
     yd_umm count = 0;
     
     if (value < 0) {
@@ -2962,7 +2977,7 @@ f32_to_string_count(yd_f32 value, yd_u32 max_precision) {
     }
     
     yd_u64 integer_part = (yd_u64)value;
-    count += u64_to_string_count(integer_part);
+    count += to_string_count(integer_part);
     
     value -= integer_part;
     
@@ -2976,8 +2991,8 @@ f32_to_string_count(yd_f32 value, yd_u32 max_precision) {
         
         value *= 10.0f;
         
-        yd_u32 Integer = (yd_u32)value;
-        value -= Integer;
+        yd_u32 integer = (yd_u32)value;
+        value -= integer;
         
         ++count;
     }
@@ -2986,9 +3001,9 @@ f32_to_string_count(yd_f32 value, yd_u32 max_precision) {
 }
 
 yd_b32
-f32_to_string(String* dest, yd_f32 value, yd_u32 max_precision) {
+to_string(String* dest, yd_f32 value, yd_u32 max_precision) {
     yd_s32 integer_part = (yd_s32)value;
-    yd_b32 result = s32_to_string(dest, integer_part);
+    yd_b32 result = to_string(dest, integer_part);
     
     if (result) {
         value -= integer_part;
@@ -3005,14 +3020,14 @@ f32_to_string(String* dest, yd_f32 value, yd_u32 max_precision) {
                 
                 value *= 10.0f;
                 
-                yd_u64 Integer = (yd_u64)value;
-                result = append_u64_to_string(dest, Integer);
+                yd_u64 integer = (yd_u64)value;
+                result = append(dest, integer);
                 
                 if (!result) {
                     break;
                 }
                 
-                value -= Integer;
+                value -= integer;
             }
         }
     }
@@ -3021,12 +3036,98 @@ f32_to_string(String* dest, yd_f32 value, yd_u32 max_precision) {
 }
 
 yd_b32
-append_f32_to_string(String* dest, yd_f32 value, yd_u32 max_precision) {
+append(String* dest, yd_f32 value, yd_u32 max_precision) {
     String tail = tailstr(*dest);
-    yd_b32 result = f32_to_string(&tail, value, max_precision);
+    yd_b32 result = to_string(&tail, value, max_precision);
     
     if (result) {
         dest->count += tail.count;
+    }
+    
+    return result;
+}
+
+F32_Conversion_Result
+to_f32(const char* str) {
+    F32_Conversion_Result result = {0.0f, true};
+    yd_b32 negative = false;
+    
+    const char* at = str;
+    if (*at == '-') {
+        negative = true;
+        ++at;
+    }
+    
+    for (; (*at) && (*at != '.'); ++at) {
+        if (is_numeric(*at)) {
+            result.value *= 10.0f;
+            result.value += (yd_f32)(*at - '0');
+        } else {
+            result.value = 0.0f;
+            result.success = false;
+            break;
+        }
+    }
+    
+    if (result.success && (*at == '.')) {
+        yd_f32 divisor = 10.0f;
+        for (at = at + 1; (*at); ++at) {
+            if (is_numeric(*at)) {
+                result.value += (((yd_f32)(*at - '0')) / divisor);
+                divisor *= 10.0f;
+            } else {
+                result.value = 0.0f;
+                result.success = false;
+                break;
+            }
+        }
+    }
+    
+    if (result.success && negative) {
+        result.value = -result.value;
+    }
+    
+    return result;
+}
+
+F32_Conversion_Result
+to_f32(String str) {
+    F32_Conversion_Result result = {0.0f, true};
+    yd_b32 negative = false;
+    
+    yd_umm index = 0;
+    if (!is_empty(str) && (str[0] == '-')) {
+        negative = true;
+        index = 1;
+    }
+    
+    for (; (index < str.count) && (str[index] != '.'); ++index) {
+        if (is_numeric(str[index])) {
+            result.value *= 10.0f;
+            result.value += (yd_f32)(str[index] - '0');
+        } else {
+            result.value = 0.0f;
+            result.success = false;
+            break;
+        }
+    }
+    
+    if (result.success && (index < str.count) && (str[index] == '.')) {
+        yd_f32 divisor = 10.0f;
+        for (index = index + 1; index < str.count; ++index) {
+            if (is_numeric(str[index])) {
+                result.value += (((yd_f32)(str[index] - '0')) / divisor);
+                divisor *= 10.0f;
+            } else {
+                result.value = 0.0f;
+                result.success = false;
+                break;
+            }
+        }
+    }
+    
+    if (result.success && negative) {
+        result.value = -result.value;
     }
     
     return result;
