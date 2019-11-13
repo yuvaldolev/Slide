@@ -3049,42 +3049,46 @@ append(String* dest, yd_f32 value, yd_u32 max_precision) {
 
 F32_Conversion_Result
 to_f32(const char* str) {
-    F32_Conversion_Result result = {0.0f, true};
+    F32_Conversion_Result result = {};
     yd_b32 negative = false;
     
-    const char* at = str;
-    if (*at == '-') {
-        negative = true;
-        ++at;
-    }
-    
-    for (; (*at) && (*at != '.'); ++at) {
-        if (is_numeric(*at)) {
-            result.value *= 10.0f;
-            result.value += (yd_f32)(*at - '0');
-        } else {
-            result.value = 0.0f;
-            result.success = false;
-            break;
+    if (str && (*str)) {
+        result.success = true;
+        
+        const char* at = str;
+        if (*at == '-') {
+            negative = true;
+            ++at;
         }
-    }
-    
-    if (result.success && (*at == '.')) {
-        yd_f32 divisor = 10.0f;
-        for (at = at + 1; (*at); ++at) {
+        
+        for (; (*at) && (*at != '.'); ++at) {
             if (is_numeric(*at)) {
-                result.value += (((yd_f32)(*at - '0')) / divisor);
-                divisor *= 10.0f;
+                result.value *= 10.0f;
+                result.value += (yd_f32)(*at - '0');
             } else {
                 result.value = 0.0f;
                 result.success = false;
                 break;
             }
         }
-    }
-    
-    if (result.success && negative) {
-        result.value = -result.value;
+        
+        if (result.success && (*at == '.')) {
+            yd_f32 divisor = 10.0f;
+            for (at = at + 1; (*at); ++at) {
+                if (is_numeric(*at)) {
+                    result.value += (((yd_f32)(*at - '0')) / divisor);
+                    divisor *= 10.0f;
+                } else {
+                    result.value = 0.0f;
+                    result.success = false;
+                    break;
+                }
+            }
+        }
+        
+        if (result.success && negative) {
+            result.value = -result.value;
+        }
     }
     
     return result;
@@ -3092,42 +3096,46 @@ to_f32(const char* str) {
 
 F32_Conversion_Result
 to_f32(String str) {
-    F32_Conversion_Result result = {0.0f, true};
+    F32_Conversion_Result result = {};
     yd_b32 negative = false;
     
-    yd_umm index = 0;
-    if (!is_empty(str) && (str[0] == '-')) {
-        negative = true;
-        index = 1;
-    }
-    
-    for (; (index < str.count) && (str[index] != '.'); ++index) {
-        if (is_numeric(str[index])) {
-            result.value *= 10.0f;
-            result.value += (yd_f32)(str[index] - '0');
-        } else {
-            result.value = 0.0f;
-            result.success = false;
-            break;
+    if (!is_empty(str)) {
+        result.success = true;
+        
+        yd_umm index = 0;
+        if (str[0] == '-') {
+            negative = true;
+            index = 1;
         }
-    }
-    
-    if (result.success && (index < str.count) && (str[index] == '.')) {
-        yd_f32 divisor = 10.0f;
-        for (index = index + 1; index < str.count; ++index) {
+        
+        for (; (index < str.count) && (str[index] != '.'); ++index) {
             if (is_numeric(str[index])) {
-                result.value += (((yd_f32)(str[index] - '0')) / divisor);
-                divisor *= 10.0f;
+                result.value *= 10.0f;
+                result.value += (yd_f32)(str[index] - '0');
             } else {
                 result.value = 0.0f;
                 result.success = false;
                 break;
             }
         }
-    }
-    
-    if (result.success && negative) {
-        result.value = -result.value;
+        
+        if (result.success && (index < str.count) && (str[index] == '.')) {
+            yd_f32 divisor = 10.0f;
+            for (index = index + 1; index < str.count; ++index) {
+                if (is_numeric(str[index])) {
+                    result.value += (((yd_f32)(str[index] - '0')) / divisor);
+                    divisor *= 10.0f;
+                } else {
+                    result.value = 0.0f;
+                    result.success = false;
+                    break;
+                }
+            }
+        }
+        
+        if (result.success && negative) {
+            result.value = -result.value;
+        }
     }
     
     return result;

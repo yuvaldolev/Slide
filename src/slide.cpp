@@ -55,10 +55,12 @@ load_slideshow(Slideshow* slideshow, const char* full_path) {
     
     if (!is_null_string(slide_file)) {
         DLIST_INIT(&slideshow->slide_sentinel);
+        
         Slide* current_slide = 0;
         Slide_Item* current_slide_item = 0;
         
         umm line_number = 0;
+        
         for (;;) {
             String line = consume_line(&slide_file);
             if (is_null_string(line)) {
@@ -80,6 +82,51 @@ load_slideshow(Slideshow* slideshow, const char* full_path) {
                             DLIST_INSERT_BACK(&slideshow->slide_sentinel, &slide->link);
                             current_slide = slide;
                             current_slide_item = 0;
+                        }
+                        else if (match(command, "background")) {
+                            String r_str = consume_word(&line);
+                            F32_Conversion_Result r_conversion = to_f32(r_str);
+                            if (!r_conversion.success) {
+                                log(AGENT, "Error in line: %d: Unable to read 'red' color.\n",
+                                    line_number);
+                                continue;
+                            }
+                            f32 r = r_conversion.value;
+                            
+                            String g_str = consume_word(&line);
+                            F32_Conversion_Result g_conversion = to_f32(g_str);
+                            if (!g_conversion.success) {
+                                log(AGENT, "Error in line: %d: Unable to read 'red' color.\n",
+                                    line_number);
+                                continue;
+                            }
+                            f32 g = g_conversion.value;
+                            
+                            String b_str = consume_word(&line);
+                            F32_Conversion_Result b_conversion = to_f32(b_str);
+                            if (!b_conversion.success) {
+                                log(AGENT, "Error in line: %d: Unable to read 'red' color.\n",
+                                    line_number);
+                                continue;
+                            }
+                            f32 b = b_conversion.value;
+                            
+                            String a_str = consume_word(&line);
+                            F32_Conversion_Result a_conversion = to_f32(a_str);
+                            f32 a;
+                            if (a_conversion.success) {
+                                a = a_conversion.value;
+                            } else {
+                                a = 1.0f;
+                            }
+                            
+                            if (current_slide) {
+                                current_slide->background_color = make_v4(r, g, b, a);
+                            } else {
+                                log(AGENT, "Error in line: %d: Got a background color for a slide, but we haven't started any slide yet.",
+                                    line_number);
+                                break;
+                            }
                         } else {
                             log(AGENT, "************** UNSUPPORTED COMMAND: %S", command);
                         }
@@ -96,6 +143,7 @@ load_slideshow(Slideshow* slideshow, const char* full_path) {
                         } else {
                             log(AGENT, "Error in line: %d: Got text for a slide, but we haven't started any slide yet.",
                                 line_number);
+                            break;
                         }
                     }
                 }
